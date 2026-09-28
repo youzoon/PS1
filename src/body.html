@@ -1,0 +1,60 @@
+<div id="app">
+  <div id="stageWrap"><canvas id="game" aria-label="Rumblevale game view"></canvas></div>
+
+  <div id="touch" hidden>
+    <div class="zone-l" id="stickZone"><div id="stick" hidden><div id="stickKnob"></div></div></div>
+    <div class="pad-r">
+      <button class="tbtn a" data-b="atk" aria-label="Attack">A</button>
+      <button class="tbtn j" data-b="jump" aria-label="Jump">J</button>
+      <button class="tbtn d" data-b="def" aria-label="Defend">D</button>
+      <button class="tbtn s s1" data-b="s1" aria-label="Spell 1"><canvas width="96" height="96"></canvas><i class="cd"></i></button>
+      <button class="tbtn s s2" data-b="s2" aria-label="Spell 2"><canvas width="96" height="96"></canvas><i class="cd"></i></button>
+      <button class="tbtn s s3" data-b="s3" aria-label="Spell 3"><canvas width="96" height="96"></canvas><i class="cd"></i></button>
+      <button class="tbtn od" data-b="od" aria-label="Overdrive">&#9733;</button>
+    </div>
+  </div>
+  <button id="pauseBtn" hidden aria-label="Pause">II</button>
+
+  <section class="screen" id="scrTitle" hidden>
+    <div class="center-col">
+      <div class="logo"><span class="l1">RUMBLEVALE</span><span class="l2">A ROGUELITE BRAWLER</span></div>
+      <div class="press-start" id="pressStart">PRESS START</div>
+      <div class="title-menu" id="titleMenu">
+        <button class="btn gold" id="bPlay">Adventure</button>
+        <button class="btn" id="bTyping">Keyboard Warrior</button>
+        <button class="btn" id="bSkills">Skill Tree</button>
+        <button class="btn" id="bTrophies">Trophies</button>
+        <button class="btn" id="bSettings">Settings</button>
+      </div>
+      <div class="title-foot" id="titleFoot">&copy; 1999 NEVER HAPPENED &middot; ALL SPRITES HAND-CODED &middot; v1.0</div>
+    </div>
+  </section>
+
+  <section class="screen" id="scrMap" hidden>
+    <canvas id="mapCanvas" aria-label="World map of Rumblevale"></canvas>
+    <div id="mapTop">
+      <div class="topbar">
+        <button class="btn small ghost" id="mapBack" aria-label="Back to title">&#9664;</button>
+        <span class="chip"><i class="coin"></i><b id="mapQ">0</b></span>
+        <span class="chip"><i class="star-i"></i><b id="mapS">0</b></span>
+        <span class="spacer"></span>
+        <button class="btn small" id="mapSkills">Skills</button>
+        <button class="btn small" id="mapTrophies">Trophies</button>
+        <button class="btn small" id="mapSettings">&#9881;</button>
+      </div>
+    </div>
+    <div id="mapPanel" hidden></div>
+  </section>
+
+  <section class="screen solid" id="scrHeroes" hidden><div class="center-col" id="heroesBody"></div></section>
+  <section class="screen solid" id="scrSkills" hidden><div class="center-col" id="skillsBody"></div></section>
+  <section class="screen solid" id="scrTrophies" hidden><div class="center-col" id="trophiesBody"></div></section>
+  <section class="screen solid" id="scrSettings" hidden><div class="center-col" id="settingsBody"></div></section>
+  <section class="screen solid" id="scrTypingMenu" hidden><div class="center-col" id="typingBody"></div></section>
+  <section class="screen dim" id="scrDraft" hidden><div class="center-col" id="draftBody"></div></section>
+  <section class="screen dim" id="scrPause" hidden><div class="center-col" id="pauseBody"></div></section>
+  <section class="screen dim" id="scrResults" hidden><div class="center-col" id="resultsBody"></div></section>
+
+  <div id="toasts" aria-live="polite"></div>
+  <input id="typeInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Typing input">
+</div>
