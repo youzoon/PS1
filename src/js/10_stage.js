@@ -37,20 +37,21 @@ class Stage {
     const biome = this.level.biome;
     this.bg = createBackground(biome, hashStr(this.level.id || 'x') + 7, this.level.night);
     this.bg.placeProps(this.mode === 'endless' || this.mode === 'demo' ? 6000 : this.stageLen);
-    this.hero = makeHero(this.heroId, 180, DEPTH * 0.55);
+    this.hero = o.carry ? carryHero(o.carry, 180, DEPTH * 0.55) : makeHero(this.heroId, 180, DEPTH * 0.55);
     this.heroes.push(this.hero);
+    this.mods = o.mods || {};
+    if (this.mods.hpMul) this.hpMul *= this.mods.hpMul;
+    if (this.mods.elite) this.eliteChance += this.mods.elite;
     if (Game.cheats.idkfa) { for (const s of this.hero.spells) s.lvl = 5; this.hero.cards[this.hero.spells[0].id] = 5; }
     this.camX = 0;
     this.maxEngaged = 2 + Math.floor(L / 4);
     // warm-up kit: later levels start with free upgrade picks so the build fits the difficulty
-    if (this.mode === 'level' && !this.bot) {
+    if (this.mode === 'level' && !o.noKit) {
       const kit = Math.floor((L - 1) / 2);
       this.pendingLevels = kit; this.hero.level += kit; this.hero.xpNext = xpForLevel(this.hero.level);
-      this.warmup = kit;
-    } else if (this.mode === 'level' && this.bot) {
-      const kit = Math.floor((L - 1) / 2);
-      this.pendingLevels = kit; this.hero.level += kit; this.hero.xpNext = xpForLevel(this.hero.level);
+      this.warmup = this.bot ? 0 : kit;
     }
+    if (this.mods.chest) this.pendingChests++;
     this.startSection(0);
     if (this.mode !== 'demo') Sfx.playMusic(this.mode === 'endless' ? 'boss' : BIOMES[biome].music);
     this.intro = 1.6;
@@ -177,6 +178,7 @@ class Stage {
       return b;
     };
     const cx = this.arena[1] - 170;
+    this.bosses = this.bosses.filter((b) => !b.dead);
     if (def.twin) { mk(cx, DEPTH * 0.3, 0.6); mk(cx - 60, DEPTH * 0.75, 0.6); }
     else mk(cx, DEPTH * 0.5, 1);
     for (const b of this.bosses) b.setState('spawn');
@@ -213,6 +215,11 @@ class Stage {
         this.arena = [this.arena[0], (this.secIdx + 2) * SEC_W];
         this.banner('GO! →', '#3ee6a8', 1.6);
         Sfx.play('banner');
+        // the Wandering Merchant sets up shop right before the boss section
+        if (this.mode === 'level' && this.diff >= 2 && this.secIdx === this.sections - 2 && !this.merchant) {
+          this.merchant = { x: (this.secIdx + 1) * SEC_W - 120, z: 26, t: 0, sold: {}, line: 0, z0: 26 };
+          Floaters.add(this.merchant.x, scrY(26, 120), 'SHOP!', { color: '#ffc53d', size: 22, life: 2 });
+        }
       }
     }
     if (this.unlocked && this.hero.x > (this.secIdx + 1) * SEC_W + 160) {
@@ -431,8 +438,8 @@ class Stage {
         a.hitIds.add(t.id);
         const m = a.move;
         let dmg = a.isHero ? this.heroMoveDmg(a, m) : a.dmg * (m.dmg || 1);
-        dealDamage(a, t, { dmg, el: a.isHero ? 'phys' : 'phys', kx: m.kx, ky: m.ky, fall: m.fall, stop: m.stop, sfx: m.sfx, melee: true, finisher: m.finisher, heavy: m.finisher, dir: a.face });
-        if (a.isHero && m.finisher && a.cards.duo_tectonic) {}
+        dealDamage(a, t, { dmg, el: 'phys', kx: m.kx, ky: m.ky, fall: m.fall, stop: m.stop, sfx: m.sfx, melee: true, finisher: m.finisher, heavy: m.finisher, dir: a.face });
+        if (a.isHero) this.heroInnate(a, t, m);
       }
       // deflect enemy projectiles (LF2 style: punch the energy ball away)
       if (a.isHero) for (const p of this.projs) {
@@ -458,6 +465,23 @@ class Stage {
     if (this.hero.cards.duo_tectonic) for (const e of this.enemies) {
       if (!e.dead && e.state === 'down' && !e.tectonicZapped) { e.tectonicZapped = true; boltFx(e.x, 0, e.x, scrY(e.z, 10)); dealDamage(this.hero, e, { dmg: this.hero.baseDmg() * 1.5, el: 'storm', dot: true }); }
       if (e.state !== 'down') e.tectonicZapped = false;
+    }
+  }
+  // hero innate passives that trigger on landed melee hits
+  heroInnate(h, t, m) {
+    const id = h.hdef.id;
+    if (id === 'rook' && m.finisher && !h.hitIds.has('innate')) {
+      h.hitIds.add('innate');
+      h.streak = (h.streak || 0) + 1;
+      if (h.streak % 2 === 0) {
+        Sfx.play('fire');
+        this.addProj(new Projectile({ team: 'hero', owner: h, spell: true, kind: 'fireball', x: h.x + h.face * 30, y: 62, z: h.z, vx: h.face * 560, r: 14, dmg: h.baseDmg() * 1.3, el: 'fire', life: 1.1, kx: 160, fall: 50, trail: '#ff7a2f' }));
+        Floaters.add(h.x, scrY(h.z, h.h + 40), 'HOT STREAK', { color: '#ff7a2f', size: 16 });
+      }
+    }
+    if (id === 'volta') {
+      h.encore = (h.encore || 0) + 1;
+      if (h.encore % 12 === 0) { chainLightning(h, t, 2, h.baseDmg() * 1.4, 220, []); Floaters.add(h.x, scrY(h.z, h.h + 40), 'ENCORE!', { color: '#ffe45c', size: 16 }); }
     }
   }
   heroMoveDmg(h, m) {
@@ -512,6 +536,7 @@ class Stage {
     for (const p of this.props) ents.push(p);
     for (const p of this.pickups) ents.push(p);
     for (const p of this.projs) ents.push(p);
+    if (this.merchant) ents.push({ z: this.merchant.z, draw: (c) => drawMerchant(this, c) });
     for (const f of ents) if (f instanceof Fighter) drawShadow(f, cam);
     ents.sort((a, b) => a.z - b.z || (a.y || 0) - (b.y || 0));
     // afterimages behind
@@ -582,6 +607,80 @@ class Stage {
   }
 }
 
+// reuse a hero between Gauntlet stages: keep the build, reset the body
+function carryHero(h, x, z) {
+  h.x = x; h.z = z; h.y = 0; h.vx = h.vy = h.vz = 0;
+  h.dead = false; h.remove = false; h.held = null;
+  h.setState('idle'); h.inv = 1.2; h.overdrive = 0; h.attacking = false; h.activeHit = false; h.buffer = 0; h.comboStep = 0;
+  h.st = { burn: 0, burnDps: 0, burnSrc: null, chill: 0, chillT: 0, frozen: 0, stun: 0, slowT: 0, shock: 0, poison: 0 };
+  h.usedSecondWind = false; h.revives = skillRank('g5') ? 1 : 0; h.fall = 0; h.guard = 0;
+  for (const sp of h.spells) sp.cd = 0;
+  return h;
+}
+// ------------------------------------------------------------
+//  Pip the Peddler: the wandering merchant (original character)
+// ------------------------------------------------------------
+const MERCHANT_LOOK = L({ build: BUILDS.small, skin: '#f2c39b', hairStyle: 'hood', hood: '#8a5a2b', hoodTrim: '#ffc53d', top: '#6b4424', top2: '#ffc53d', pants: '#4a3a28', shoes: '#2b1d14', weapon: 'none', blush: true, beard: '#e8e2d2' });
+const MERCHANT_LINES = ['Psst! Upgrades! Barely used!', 'No refunds. No returns. No questions.', 'I take quarters, tokens and exact change.', 'This stew? Secret recipe. Mostly soup.', 'Boss ahead. Just saying. Buy something.', 'Found this floppy in a dragon. Still works!'];
+function nearMerchant(s, h) { const m = s.merchant; return m && Math.abs(h.x - m.x) < 80 && Math.abs(h.z - m.z) < 60; }
+function drawMerchant(s, cam) {
+  const m = s.merchant, g = ctx;
+  const x = m.x - cam, y = scrY(m.z, 0);
+  if (x < -200 || x > VIEW_W + 200) return;
+  const T = s.time;
+  const h = s.hero;
+  const face = h.x < m.x ? -1 : 1;
+  const sc = depthScale(m.z) * 1.05;
+  g.fillStyle = 'rgba(10,5,30,.3)'; g.beginPath(); g.ellipse(x, y, 34 * sc, 9 * sc, 0, 0, TAU); g.fill();
+  // the enormous backpack
+  g.save(); g.translate(x - face * 16 * sc, y - 40 * sc); g.scale(sc, sc);
+  g.lineJoin = 'round'; g.strokeStyle = OUTLINE; g.lineWidth = 3;
+  g.fillStyle = '#a0703a'; roundRect(g, -26, -70, 52, 74, 12); g.fill(); g.stroke();
+  g.fillStyle = '#7a5230'; g.fillRect(-26, -40, 52, 8); g.fillStyle = '#ffc53d'; g.fillRect(-4, -42, 8, 12);
+  g.fillStyle = '#9aa3b5'; g.beginPath(); g.ellipse(-8, -76, 16, 9, 0, Math.PI, TAU); g.fill(); g.stroke(); // pot
+  g.fillStyle = '#ffe45c'; g.beginPath(); g.ellipse(14, -80, 8, 6, 0, 0, TAU); g.fill(); g.stroke(); // rubber duck
+  g.beginPath(); g.arc(18, -88, 5, 0, TAU); g.fill(); g.stroke(); g.fillStyle = '#ff8a2b'; g.fillRect(22, -89, 5, 3);
+  g.fillStyle = '#2f6bd8'; g.save(); g.rotate(0.3); g.fillRect(10, -64, 14, 14); g.strokeRect(10, -64, 14, 14); g.restore(); // a floppy
+  g.fillStyle = '#f1dfb3'; g.save(); g.rotate(-0.5); roundRect(g, -40, -60, 30, 9, 4); g.fill(); g.stroke(); g.restore(); // scroll
+  g.restore();
+  // Pip himself
+  const pose = computePose({ anim: nearMerchant(s, h) ? 'win' : 'idle', animT: T, clock: T + 3, id: 7 });
+  const look = Object.assign({}, MERCHANT_LOOK, { _t: T, _blink: T % 4 < 0.12 });
+  drawHumanoid(g, x, y, sc, face, look, pose, {});
+  // lantern on a stick
+  const lx = x + face * 26 * sc, ly = y - 92 * sc + Math.sin(T * 2) * 2;
+  g.strokeStyle = '#5a3a24'; g.lineWidth = 3; g.beginPath(); g.moveTo(x + face * 18 * sc, y - 40 * sc); g.lineTo(lx, ly - 10); g.stroke();
+  g.globalCompositeOperation = 'lighter'; drawGlow(lx, ly + 6, 30, '#ffd35c', 0.6); g.globalCompositeOperation = 'source-over';
+  g.fillStyle = '#ffd35c'; g.strokeStyle = OUTLINE; g.lineWidth = 2; roundRect(g, lx - 6, ly - 4, 12, 16, 3); g.fill(); g.stroke();
+  // speech bubble & prompt
+  const d = Math.abs(h.x - m.x);
+  if (d < 320) {
+    const line = MERCHANT_LINES[Math.floor(T / 4) % MERCHANT_LINES.length];
+    g.font = `13px ${FONT_BODY}`;
+    const w = g.measureText(line).width + 20;
+    const bx = clamp(x - w / 2, 8, VIEW_W - w - 8), by = y - 150 * sc;
+    g.fillStyle = '#fff4e2'; g.strokeStyle = OUTLINE; g.lineWidth = 2;
+    roundRect(g, bx, by - 26, w, 26, 10); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(x - 6, by); g.lineTo(x, by + 10); g.lineTo(x + 6, by); g.fill();
+    g.fillStyle = '#3a2410'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(line, bx + w / 2, by - 12);
+  }
+  if (nearMerchant(s, h)) {
+    const txt = Input.touch ? 'Tap A to shop' : 'Press J to shop';
+    g.font = `12px ${FONT_PIXEL}`; g.textAlign = 'center';
+    g.fillStyle = 'rgba(10,6,28,.85)'; roundRect(g, x - 70, y + 8, 140, 22, 8); g.fill();
+    g.fillStyle = Math.floor(T * 3) % 2 ? '#ffc53d' : '#fff4e2'; g.fillText(txt, x, y + 20);
+  }
+}
+function shopOffers(s) {
+  const L = s.diff, h = s.hero;
+  const owned = h.spells.filter((sp) => sp.lvl < 5);
+  return [
+    { id: 'stew', name: 'Hearty Stew', icon: 'heart', color: '#ff4f73', desc: h.hp < h.maxHp ? 'Heal 60% of your HP.' : 'You are already at full HP.', cost: 10 + L * 3, ok: () => h.hp < h.maxHp, buy: () => h.heal(h.maxHp * 0.6) },
+    { id: 'soda', name: 'Mana Soda', icon: 'crystal', color: '#55c8ff', desc: 'Refill MP and charge Overdrive by half.', cost: 8 + L * 2, buy: () => { h.mp = h.maxMp; h.od = Math.min(100, h.od + 50); } },
+    { id: 'card', name: 'Mystery Card', icon: 'card4', color: '#b77cff', desc: 'Open a treasure draft of rare cards.', cost: 18 + L * 6, buy: () => { s.pendingChests++; } },
+    { id: 'tune', name: 'Spell Tune-up', icon: 'up', color: '#ffc53d', desc: owned.length ? 'One of your spells gains a level.' : 'No spell can be tuned right now.', cost: 16 + L * 5, ok: () => owned.length > 0, buy: () => { const sp = pick(owned); sp.lvl++; h.cards[sp.id] = sp.lvl; Floaters.add(h.x, scrY(h.z, 150), SPELLS[sp.id].name + ' Lv ' + sp.lvl, { color: '#ffc53d', size: 18 }); } },
+  ];
+}
 function drawShadow(f, cam) {
   if (f.hidden) {
     if (f.submerged) { const x = f.x - cam, y = scrY(f.z, 0); ctx.fillStyle = '#c99a5b'; ctx.beginPath(); ctx.ellipse(x, y, 40, 12, 0, Math.PI, TAU); ctx.fill(); }

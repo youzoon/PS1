@@ -408,7 +408,7 @@ const BossActs = {
     if (a.step < 3 && a.t > a.step * 0.7) {
       a.step++;
       const x1 = b.x - 60, x0 = b.x - 700;
-      laneTelegraph(h.z, x0, x1, 0.6, b.dmg * 0.9, { owner: b, kind: 'breath', life: 0.5, tick: 0.25, el: 'fire', color: '#ff7a2f', rz: 38, onFire: () => Sfx.play('fire') });
+      laneTelegraph(h.z, x0, x1, 0.6, b.dmg * 0.7, { owner: b, kind: 'breath', life: 0.5, tick: 0.25, el: 'fire', color: '#ff7a2f', rz: 38, onFire: () => Sfx.play('fire') });
     }
     return a.t > 2.6;
   },
@@ -434,13 +434,13 @@ const BossActs = {
       a.step = 1;
       const lanes = [28, 95, 162];
       const safe = RI(0, 2);
-      lanes.forEach((z, i) => { if (i !== safe) laneTelegraph(z, S.arena[0], S.arena[1], 1.1, b.dmg * 1.2, { owner: b, kind: 'beam', life: 0.5, tick: 0.25, color: '#ff3df2', rz: 30, unblockable: true, onFire: () => { Sfx.play('zap'); S.shake(5); } }); });
+      lanes.forEach((z, i) => { if (i !== safe) laneTelegraph(z, S.arena[0], S.arena[1], 1.1, b.dmg * 0.9, { owner: b, kind: 'beam', life: 0.5, tick: 0.25, color: '#ff3df2', rz: 30, unblockable: true, onFire: () => { Sfx.play('zap'); S.shake(5); } }); });
       a.safe = safe;
     }
     if (a.step === 1 && a.t > 1.8) {
       a.step = 2;
       const lanes = [28, 95, 162];
-      laneTelegraph(lanes[a.safe], S.arena[0], S.arena[1], 0.9, b.dmg * 1.2, { owner: b, kind: 'beam', life: 0.5, tick: 0.25, color: '#3dfff6', rz: 30, unblockable: true, onFire: () => Sfx.play('zap') });
+      laneTelegraph(lanes[a.safe], S.arena[0], S.arena[1], 0.9, b.dmg * 0.9, { owner: b, kind: 'beam', life: 0.5, tick: 0.25, color: '#3dfff6', rz: 30, unblockable: true, onFire: () => Sfx.play('zap') });
     }
     return a.t > 3;
   },

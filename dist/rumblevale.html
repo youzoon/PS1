@@ -266,7 +266,7 @@ body.portrait #touch .zone-l { width: 50%; height: 100%; }
 #pauseBtn { position: absolute; z-index: 11; right: max(10px, env(safe-area-inset-right, 0px)); top: max(8px, env(safe-area-inset-top, 0px)); width: 44px; height: 44px; border-radius: 12px; border: 2px solid rgba(255,255,255,.3); background: rgba(10,7,25,.6); color: #fff; font-family: var(--f-display); font-size: 18px; }
 
 /* ---------- toasts ---------- */
-#toasts { position: absolute; z-index: 60; left: 50%; top: max(12px, env(safe-area-inset-top, 0px)); transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; width: min(92%, 420px); }
+#toasts { position: absolute; z-index: 60; left: 50%; bottom: max(14px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; flex-direction: column-reverse; gap: 8px; align-items: center; pointer-events: none; width: min(92%, 420px); }
 .toast {
   display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: center; width: 100%;
   background: linear-gradient(#2c2f33, #17191c); border: 2px solid #5b6168; border-radius: 999px; padding: 6px 18px 6px 6px;
@@ -278,8 +278,8 @@ body.portrait #touch .zone-l { width: 50%; height: 100%; }
 .toast.cheat { background: linear-gradient(#003b1f, #001a0e); border-color: #00ff7b; }
 .toast.cheat .ico { background: #00ff7b; color: #003b1f; }
 .toast.cheat .t1, .toast.cheat .t2 { font-family: var(--f-pixel); color: #00ff7b; }
-@keyframes toastIn { from { transform: translateY(-30px) scale(.7); opacity: 0; } }
-@keyframes toastOut { to { transform: translateY(-20px); opacity: 0; } }
+@keyframes toastIn { from { transform: translateY(30px) scale(.7); opacity: 0; } }
+@keyframes toastOut { to { transform: translateY(20px); opacity: 0; } }
 
 /* ---------- typing mode ---------- */
 #typeInput { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; z-index: -1; font-size: 16px; }
@@ -465,6 +465,7 @@ function defaultSave() {
     secrets: {},
     seenIntro: false,
     endlessBest: 0,
+    gauntletBest: 0,
     typing: { lessons: {}, keyMiss: {}, keyHit: {}, bestWpm: 0 },
     settings: { sfx: 0.8, music: 0.5, shake: true, dmgNums: true, touch: 'auto', hints: true },
     mapPos: 'L1',
@@ -2324,6 +2325,15 @@ const HEROES = {
   },
 };
 const HERO_ORDER = ['rook', 'mira', 'bruno', 'kit', 'volta', 'glitch'];
+// innate passives: each hero plays differently, not just with different numbers
+const INNATE = {
+  rook: { name: 'Hot Streak', desc: 'Every 2nd combo finisher launches a free fireball.' },
+  mira: { name: 'Cold Focus', desc: 'Blocking restores MP and chills the attacker.' },
+  bruno: { name: 'Unstoppable', desc: 'Cannot be flinched while swinging. Hits knock back further.' },
+  kit: { name: 'Borrowed Time', desc: 'Taking a hit slows nearby enemies (8s cooldown).' },
+  volta: { name: 'Encore', desc: 'Every 12th hit fires a free chain lightning.' },
+  glitch: { name: 'Undefined Behavior', desc: '10% chance for a triple-damage CRITICAL ERROR.' },
+};
 
 // ---------------- enemies ----------------
 // ai: brawler | ranged | bomber | hopper | flyer | tank | caster | healer | charger
@@ -2449,6 +2459,7 @@ const SIDE = [
   { id: 'DOJO', name: 'Keyboard Warrior Dojo', kind: 'typing', x: 700, y: 1010, blurb: 'Special mode: defeat enemies by typing their words. Starts with the home row and builds to full sentences.' },
   { id: 'EC', name: 'Endless Colosseum', kind: 'endless', x: 860, y: 740, req: 'L3', blurb: 'Survive wave after wave. Your best wave is saved.' },
   { id: 'COW', name: '???', kind: 'cow', x: 120, y: 620, secret: true, blurb: 'There is no cow level.' },
+  { id: 'GAUNT', name: 'The Gauntlet', kind: 'gauntlet', x: 1080, y: 650, req: 'L4', blurb: 'Special mode: five battles in a row. Keep your build, pick your path at every crossroads, and see how far you get.' },
 ];
 const LEVEL_BY_ID = Object.fromEntries(LEVELS.map((l) => [l.id, l]));
 
@@ -2591,6 +2602,8 @@ const ACH = [
   { id: 'overdrive', name: 'Limit Break', desc: 'Trigger Overdrive.' },
   { id: 'kills1000', name: 'Rumble Veteran', desc: 'Defeat 1,000 enemies.' },
   { id: 'ufo', name: 'The Truth Is Out There', desc: 'Find the crashed UFO on the map.' },
+  { id: 'gauntlet', name: 'Ran the Gauntlet', desc: 'Survive all five battles of The Gauntlet.' },
+  { id: 'shopper', name: 'Valued Customer', desc: 'Buy something from Pip the Peddler.' },
   { id: 'throw', name: 'Yeet', desc: 'Defeat an enemy with a thrown object.' },
 ];
 
@@ -3873,6 +3886,9 @@ function dealDamage(att, tgt, info) {
     if (hero.hp < hero.maxHp * 0.35) dmg *= 1 + st.berserk;
     if (hero.overdrive > 0) dmg *= 2;
     if (info.el === 'storm' && hero.cards.duo_plasma && tgt.st.burn > 0) dmg *= 1.4;
+    const hid = hero.hdef.id;
+    if (hid === 'glitch' && info.melee && Math.random() < 0.1) { dmg *= 3; Floaters.add(tgt.x, scrY(tgt.z, tgt.h + 40), 'CRITICAL ERROR', { color: '#ff3df2', size: 18, font: FONT_PIXEL }); }
+    if (hid === 'bruno' && info.kx) info = Object.assign({}, info, { kx: info.kx * 1.25 });
   }
   // blocking
   if (!info.dot && !info.unblockable && tgt.state === 'block' && att && tgt.isFacing(att)) {
@@ -3883,6 +3899,11 @@ function dealDamage(att, tgt, info) {
     Sfx.play('block');
     spark(tgt.x + tgt.face * 16, tgt.z, tgt.y + tgt.h * 0.55, '#bfe9ff', 6);
     S.hitstop = Math.max(S.hitstop, 0.03);
+    if (tgt.isHero && tgt.hdef.id === 'mira') {
+      tgt.mp = Math.min(tgt.maxMp, tgt.mp + 6);
+      if (att && !att.isHero) { att.st.chill += 1; att.st.chillT = 3; }
+      Particles.burst(tgt.x + tgt.face * 20, scrY(tgt.z, 60), 5, { speed: 120, life: 0.4, size: 3, colors: ['#bff5ff', '#7fe3ff'], type: 'shard' });
+    }
     if (tgt.isHero) { tgt.guard = (tgt.guard || 0) + info.dmg; if (tgt.guard > tgt.maxHp * 0.5) { tgt.guard = 0; tgt.setState('stun'); tgt.stunDur = 0.9; Floaters.add(tgt.x, scrY(tgt.z, tgt.h + 20), 'GUARD BREAK', { color: '#ff4f73', size: 18 }); } }
     if (!tgt.isHero && tgt.def.blocker) { tgt.blockHits = (tgt.blockHits || 0) + 1; }
     if (tgt.hp <= 0) killFighter(tgt, att, info);
@@ -3928,6 +3949,14 @@ function dealDamage(att, tgt, info) {
     hero.addOverdrive(dmg * 0.3);
     if (hero.stats.lifesteal > 0) hero.heal(dmg * hero.stats.lifesteal, true);
     S.dmgDealt += dmg;
+  }
+  if (tgt.isHero && !info.dot && tgt.hdef.id === 'kit' && S.time - (tgt.kitT ?? -99) > 8) {
+    // Borrowed Time: everything nearby slows down for a moment
+    tgt.kitT = S.time;
+    for (const e of S.enemies) if (!e.dead && Math.abs(e.x - tgt.x) < 280) e.st.slowT = Math.max(e.st.slowT, 1.8);
+    Particles.add({ x: tgt.x, y: scrY(tgt.z, 0), type: 'ring', size: 200, life: 0.5, color: '#c58cff' });
+    Floaters.add(tgt.x, scrY(tgt.z, tgt.h + 50), 'BORROWED TIME', { color: '#c58cff', size: 18 });
+    Sfx.play('time');
   }
   if (tgt.isHero) {
     S.tookDamage = true;
@@ -3988,6 +4017,7 @@ function react(tgt, att, info) {
   }
   tgt.fall += info.fall || 20;
   if (tgt.isHero && tgt.overdrive > 0) return; // super armor during overdrive
+  if (tgt.isHero && tgt.hdef.id === 'bruno' && tgt.state === 'attack' && (info.ky || 0) < 250) { tgt.fall = Math.min(tgt.fall, 60); return; }
   if (tgt.state === 'air' || tgt.fall >= 100 || (info.ky || 0) >= 200) {
     // launch
     tgt.setState('air');
@@ -4086,6 +4116,7 @@ class Projectile {
     const targets = this.team === 'hero' ? S.enemies : S.heroes;
     for (const f of targets) {
       if (f.dead || this.hitIds.has(f.id)) continue;
+      if (this.only && f !== this.only) continue;
       if (Math.abs(f.x - this.x) > this.r + f.w * 0.5) continue;
       if (Math.abs(f.z - this.z) > this.rz) continue;
       const fy = f.y + (f.flying ? -10 : 0);
@@ -4705,6 +4736,7 @@ function heroControl(h, dt) {
     if (P.jump) { h.held.dead = false; dropHeld(h); }
     return;
   }
+  if (P.atk && nearMerchant(S, h)) { UI.shop(); return; }
   if (P.atk) {
     const prop = !mv.x && !mv.z ? nearbyProp(h) : null;
     if (prop) { liftProp(h, prop); return; }
@@ -5352,7 +5384,7 @@ const BossActs = {
     if (a.step < 3 && a.t > a.step * 0.7) {
       a.step++;
       const x1 = b.x - 60, x0 = b.x - 700;
-      laneTelegraph(h.z, x0, x1, 0.6, b.dmg * 0.9, { owner: b, kind: 'breath', life: 0.5, tick: 0.25, el: 'fire', color: '#ff7a2f', rz: 38, onFire: () => Sfx.play('fire') });
+      laneTelegraph(h.z, x0, x1, 0.6, b.dmg * 0.7, { owner: b, kind: 'breath', life: 0.5, tick: 0.25, el: 'fire', color: '#ff7a2f', rz: 38, onFire: () => Sfx.play('fire') });
     }
     return a.t > 2.6;
   },
@@ -5378,13 +5410,13 @@ const BossActs = {
       a.step = 1;
       const lanes = [28, 95, 162];
       const safe = RI(0, 2);
-      lanes.forEach((z, i) => { if (i !== safe) laneTelegraph(z, S.arena[0], S.arena[1], 1.1, b.dmg * 1.2, { owner: b, kind: 'beam', life: 0.5, tick: 0.25, color: '#ff3df2', rz: 30, unblockable: true, onFire: () => { Sfx.play('zap'); S.shake(5); } }); });
+      lanes.forEach((z, i) => { if (i !== safe) laneTelegraph(z, S.arena[0], S.arena[1], 1.1, b.dmg * 0.9, { owner: b, kind: 'beam', life: 0.5, tick: 0.25, color: '#ff3df2', rz: 30, unblockable: true, onFire: () => { Sfx.play('zap'); S.shake(5); } }); });
       a.safe = safe;
     }
     if (a.step === 1 && a.t > 1.8) {
       a.step = 2;
       const lanes = [28, 95, 162];
-      laneTelegraph(lanes[a.safe], S.arena[0], S.arena[1], 0.9, b.dmg * 1.2, { owner: b, kind: 'beam', life: 0.5, tick: 0.25, color: '#3dfff6', rz: 30, unblockable: true, onFire: () => Sfx.play('zap') });
+      laneTelegraph(lanes[a.safe], S.arena[0], S.arena[1], 0.9, b.dmg * 0.9, { owner: b, kind: 'beam', life: 0.5, tick: 0.25, color: '#3dfff6', rz: 30, unblockable: true, onFire: () => Sfx.play('zap') });
     }
     return a.t > 3;
   },
@@ -5463,20 +5495,21 @@ class Stage {
     const biome = this.level.biome;
     this.bg = createBackground(biome, hashStr(this.level.id || 'x') + 7, this.level.night);
     this.bg.placeProps(this.mode === 'endless' || this.mode === 'demo' ? 6000 : this.stageLen);
-    this.hero = makeHero(this.heroId, 180, DEPTH * 0.55);
+    this.hero = o.carry ? carryHero(o.carry, 180, DEPTH * 0.55) : makeHero(this.heroId, 180, DEPTH * 0.55);
     this.heroes.push(this.hero);
+    this.mods = o.mods || {};
+    if (this.mods.hpMul) this.hpMul *= this.mods.hpMul;
+    if (this.mods.elite) this.eliteChance += this.mods.elite;
     if (Game.cheats.idkfa) { for (const s of this.hero.spells) s.lvl = 5; this.hero.cards[this.hero.spells[0].id] = 5; }
     this.camX = 0;
     this.maxEngaged = 2 + Math.floor(L / 4);
     // warm-up kit: later levels start with free upgrade picks so the build fits the difficulty
-    if (this.mode === 'level' && !this.bot) {
+    if (this.mode === 'level' && !o.noKit) {
       const kit = Math.floor((L - 1) / 2);
       this.pendingLevels = kit; this.hero.level += kit; this.hero.xpNext = xpForLevel(this.hero.level);
-      this.warmup = kit;
-    } else if (this.mode === 'level' && this.bot) {
-      const kit = Math.floor((L - 1) / 2);
-      this.pendingLevels = kit; this.hero.level += kit; this.hero.xpNext = xpForLevel(this.hero.level);
+      this.warmup = this.bot ? 0 : kit;
     }
+    if (this.mods.chest) this.pendingChests++;
     this.startSection(0);
     if (this.mode !== 'demo') Sfx.playMusic(this.mode === 'endless' ? 'boss' : BIOMES[biome].music);
     this.intro = 1.6;
@@ -5603,6 +5636,7 @@ class Stage {
       return b;
     };
     const cx = this.arena[1] - 170;
+    this.bosses = this.bosses.filter((b) => !b.dead);
     if (def.twin) { mk(cx, DEPTH * 0.3, 0.6); mk(cx - 60, DEPTH * 0.75, 0.6); }
     else mk(cx, DEPTH * 0.5, 1);
     for (const b of this.bosses) b.setState('spawn');
@@ -5639,6 +5673,11 @@ class Stage {
         this.arena = [this.arena[0], (this.secIdx + 2) * SEC_W];
         this.banner('GO! →', '#3ee6a8', 1.6);
         Sfx.play('banner');
+        // the Wandering Merchant sets up shop right before the boss section
+        if (this.mode === 'level' && this.diff >= 2 && this.secIdx === this.sections - 2 && !this.merchant) {
+          this.merchant = { x: (this.secIdx + 1) * SEC_W - 120, z: 26, t: 0, sold: {}, line: 0, z0: 26 };
+          Floaters.add(this.merchant.x, scrY(26, 120), 'SHOP!', { color: '#ffc53d', size: 22, life: 2 });
+        }
       }
     }
     if (this.unlocked && this.hero.x > (this.secIdx + 1) * SEC_W + 160) {
@@ -5857,8 +5896,8 @@ class Stage {
         a.hitIds.add(t.id);
         const m = a.move;
         let dmg = a.isHero ? this.heroMoveDmg(a, m) : a.dmg * (m.dmg || 1);
-        dealDamage(a, t, { dmg, el: a.isHero ? 'phys' : 'phys', kx: m.kx, ky: m.ky, fall: m.fall, stop: m.stop, sfx: m.sfx, melee: true, finisher: m.finisher, heavy: m.finisher, dir: a.face });
-        if (a.isHero && m.finisher && a.cards.duo_tectonic) {}
+        dealDamage(a, t, { dmg, el: 'phys', kx: m.kx, ky: m.ky, fall: m.fall, stop: m.stop, sfx: m.sfx, melee: true, finisher: m.finisher, heavy: m.finisher, dir: a.face });
+        if (a.isHero) this.heroInnate(a, t, m);
       }
       // deflect enemy projectiles (LF2 style: punch the energy ball away)
       if (a.isHero) for (const p of this.projs) {
@@ -5884,6 +5923,23 @@ class Stage {
     if (this.hero.cards.duo_tectonic) for (const e of this.enemies) {
       if (!e.dead && e.state === 'down' && !e.tectonicZapped) { e.tectonicZapped = true; boltFx(e.x, 0, e.x, scrY(e.z, 10)); dealDamage(this.hero, e, { dmg: this.hero.baseDmg() * 1.5, el: 'storm', dot: true }); }
       if (e.state !== 'down') e.tectonicZapped = false;
+    }
+  }
+  // hero innate passives that trigger on landed melee hits
+  heroInnate(h, t, m) {
+    const id = h.hdef.id;
+    if (id === 'rook' && m.finisher && !h.hitIds.has('innate')) {
+      h.hitIds.add('innate');
+      h.streak = (h.streak || 0) + 1;
+      if (h.streak % 2 === 0) {
+        Sfx.play('fire');
+        this.addProj(new Projectile({ team: 'hero', owner: h, spell: true, kind: 'fireball', x: h.x + h.face * 30, y: 62, z: h.z, vx: h.face * 560, r: 14, dmg: h.baseDmg() * 1.3, el: 'fire', life: 1.1, kx: 160, fall: 50, trail: '#ff7a2f' }));
+        Floaters.add(h.x, scrY(h.z, h.h + 40), 'HOT STREAK', { color: '#ff7a2f', size: 16 });
+      }
+    }
+    if (id === 'volta') {
+      h.encore = (h.encore || 0) + 1;
+      if (h.encore % 12 === 0) { chainLightning(h, t, 2, h.baseDmg() * 1.4, 220, []); Floaters.add(h.x, scrY(h.z, h.h + 40), 'ENCORE!', { color: '#ffe45c', size: 16 }); }
     }
   }
   heroMoveDmg(h, m) {
@@ -5938,6 +5994,7 @@ class Stage {
     for (const p of this.props) ents.push(p);
     for (const p of this.pickups) ents.push(p);
     for (const p of this.projs) ents.push(p);
+    if (this.merchant) ents.push({ z: this.merchant.z, draw: (c) => drawMerchant(this, c) });
     for (const f of ents) if (f instanceof Fighter) drawShadow(f, cam);
     ents.sort((a, b) => a.z - b.z || (a.y || 0) - (b.y || 0));
     // afterimages behind
@@ -6008,6 +6065,80 @@ class Stage {
   }
 }
 
+// reuse a hero between Gauntlet stages: keep the build, reset the body
+function carryHero(h, x, z) {
+  h.x = x; h.z = z; h.y = 0; h.vx = h.vy = h.vz = 0;
+  h.dead = false; h.remove = false; h.held = null;
+  h.setState('idle'); h.inv = 1.2; h.overdrive = 0; h.attacking = false; h.activeHit = false; h.buffer = 0; h.comboStep = 0;
+  h.st = { burn: 0, burnDps: 0, burnSrc: null, chill: 0, chillT: 0, frozen: 0, stun: 0, slowT: 0, shock: 0, poison: 0 };
+  h.usedSecondWind = false; h.revives = skillRank('g5') ? 1 : 0; h.fall = 0; h.guard = 0;
+  for (const sp of h.spells) sp.cd = 0;
+  return h;
+}
+// ------------------------------------------------------------
+//  Pip the Peddler: the wandering merchant (original character)
+// ------------------------------------------------------------
+const MERCHANT_LOOK = L({ build: BUILDS.small, skin: '#f2c39b', hairStyle: 'hood', hood: '#8a5a2b', hoodTrim: '#ffc53d', top: '#6b4424', top2: '#ffc53d', pants: '#4a3a28', shoes: '#2b1d14', weapon: 'none', blush: true, beard: '#e8e2d2' });
+const MERCHANT_LINES = ['Psst! Upgrades! Barely used!', 'No refunds. No returns. No questions.', 'I take quarters, tokens and exact change.', 'This stew? Secret recipe. Mostly soup.', 'Boss ahead. Just saying. Buy something.', 'Found this floppy in a dragon. Still works!'];
+function nearMerchant(s, h) { const m = s.merchant; return m && Math.abs(h.x - m.x) < 80 && Math.abs(h.z - m.z) < 60; }
+function drawMerchant(s, cam) {
+  const m = s.merchant, g = ctx;
+  const x = m.x - cam, y = scrY(m.z, 0);
+  if (x < -200 || x > VIEW_W + 200) return;
+  const T = s.time;
+  const h = s.hero;
+  const face = h.x < m.x ? -1 : 1;
+  const sc = depthScale(m.z) * 1.05;
+  g.fillStyle = 'rgba(10,5,30,.3)'; g.beginPath(); g.ellipse(x, y, 34 * sc, 9 * sc, 0, 0, TAU); g.fill();
+  // the enormous backpack
+  g.save(); g.translate(x - face * 16 * sc, y - 40 * sc); g.scale(sc, sc);
+  g.lineJoin = 'round'; g.strokeStyle = OUTLINE; g.lineWidth = 3;
+  g.fillStyle = '#a0703a'; roundRect(g, -26, -70, 52, 74, 12); g.fill(); g.stroke();
+  g.fillStyle = '#7a5230'; g.fillRect(-26, -40, 52, 8); g.fillStyle = '#ffc53d'; g.fillRect(-4, -42, 8, 12);
+  g.fillStyle = '#9aa3b5'; g.beginPath(); g.ellipse(-8, -76, 16, 9, 0, Math.PI, TAU); g.fill(); g.stroke(); // pot
+  g.fillStyle = '#ffe45c'; g.beginPath(); g.ellipse(14, -80, 8, 6, 0, 0, TAU); g.fill(); g.stroke(); // rubber duck
+  g.beginPath(); g.arc(18, -88, 5, 0, TAU); g.fill(); g.stroke(); g.fillStyle = '#ff8a2b'; g.fillRect(22, -89, 5, 3);
+  g.fillStyle = '#2f6bd8'; g.save(); g.rotate(0.3); g.fillRect(10, -64, 14, 14); g.strokeRect(10, -64, 14, 14); g.restore(); // a floppy
+  g.fillStyle = '#f1dfb3'; g.save(); g.rotate(-0.5); roundRect(g, -40, -60, 30, 9, 4); g.fill(); g.stroke(); g.restore(); // scroll
+  g.restore();
+  // Pip himself
+  const pose = computePose({ anim: nearMerchant(s, h) ? 'win' : 'idle', animT: T, clock: T + 3, id: 7 });
+  const look = Object.assign({}, MERCHANT_LOOK, { _t: T, _blink: T % 4 < 0.12 });
+  drawHumanoid(g, x, y, sc, face, look, pose, {});
+  // lantern on a stick
+  const lx = x + face * 26 * sc, ly = y - 92 * sc + Math.sin(T * 2) * 2;
+  g.strokeStyle = '#5a3a24'; g.lineWidth = 3; g.beginPath(); g.moveTo(x + face * 18 * sc, y - 40 * sc); g.lineTo(lx, ly - 10); g.stroke();
+  g.globalCompositeOperation = 'lighter'; drawGlow(lx, ly + 6, 30, '#ffd35c', 0.6); g.globalCompositeOperation = 'source-over';
+  g.fillStyle = '#ffd35c'; g.strokeStyle = OUTLINE; g.lineWidth = 2; roundRect(g, lx - 6, ly - 4, 12, 16, 3); g.fill(); g.stroke();
+  // speech bubble & prompt
+  const d = Math.abs(h.x - m.x);
+  if (d < 320) {
+    const line = MERCHANT_LINES[Math.floor(T / 4) % MERCHANT_LINES.length];
+    g.font = `13px ${FONT_BODY}`;
+    const w = g.measureText(line).width + 20;
+    const bx = clamp(x - w / 2, 8, VIEW_W - w - 8), by = y - 150 * sc;
+    g.fillStyle = '#fff4e2'; g.strokeStyle = OUTLINE; g.lineWidth = 2;
+    roundRect(g, bx, by - 26, w, 26, 10); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(x - 6, by); g.lineTo(x, by + 10); g.lineTo(x + 6, by); g.fill();
+    g.fillStyle = '#3a2410'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(line, bx + w / 2, by - 12);
+  }
+  if (nearMerchant(s, h)) {
+    const txt = Input.touch ? 'Tap A to shop' : 'Press J to shop';
+    g.font = `12px ${FONT_PIXEL}`; g.textAlign = 'center';
+    g.fillStyle = 'rgba(10,6,28,.85)'; roundRect(g, x - 70, y + 8, 140, 22, 8); g.fill();
+    g.fillStyle = Math.floor(T * 3) % 2 ? '#ffc53d' : '#fff4e2'; g.fillText(txt, x, y + 20);
+  }
+}
+function shopOffers(s) {
+  const L = s.diff, h = s.hero;
+  const owned = h.spells.filter((sp) => sp.lvl < 5);
+  return [
+    { id: 'stew', name: 'Hearty Stew', icon: 'heart', color: '#ff4f73', desc: h.hp < h.maxHp ? 'Heal 60% of your HP.' : 'You are already at full HP.', cost: 10 + L * 3, ok: () => h.hp < h.maxHp, buy: () => h.heal(h.maxHp * 0.6) },
+    { id: 'soda', name: 'Mana Soda', icon: 'crystal', color: '#55c8ff', desc: 'Refill MP and charge Overdrive by half.', cost: 8 + L * 2, buy: () => { h.mp = h.maxMp; h.od = Math.min(100, h.od + 50); } },
+    { id: 'card', name: 'Mystery Card', icon: 'card4', color: '#b77cff', desc: 'Open a treasure draft of rare cards.', cost: 18 + L * 6, buy: () => { s.pendingChests++; } },
+    { id: 'tune', name: 'Spell Tune-up', icon: 'up', color: '#ffc53d', desc: owned.length ? 'One of your spells gains a level.' : 'No spell can be tuned right now.', cost: 16 + L * 5, ok: () => owned.length > 0, buy: () => { const sp = pick(owned); sp.lvl++; h.cards[sp.id] = sp.lvl; Floaters.add(h.x, scrY(h.z, 150), SPELLS[sp.id].name + ' Lv ' + sp.lvl, { color: '#ffc53d', size: 18 }); } },
+  ];
+}
 function drawShadow(f, cam) {
   if (f.hidden) {
     if (f.submerged) { const x = f.x - cam, y = scrY(f.z, 0); ctx.fillStyle = '#c99a5b'; ctx.beginPath(); ctx.ellipse(x, y, 40, 12, 0, Math.PI, TAU); ctx.fill(); }
@@ -6383,11 +6514,12 @@ const UI = {
   },
 
   // ---------------- hero select ----------------
-  heroes(onPick, title = 'Choose your fighter') {
+  heroes(onPick, title = 'Choose your fighter', back) {
     const body = $('heroesBody');
     body.innerHTML = '';
+    const goBack = back || (() => { Game.stopStage(); Game.toMap(); });
     body.append(h('div', { class: 'screen-head' },
-      h('button', { class: 'btn small ghost', onclick: () => { Sfx.play('back'); UI.show('scrMap'); } }, '◀ Map'),
+      h('button', { class: 'btn small ghost', onclick: () => { Sfx.play('back'); cancelAnimationFrame(raf); goBack(); } }, back ? '◀ Back' : '◀ Map'),
       h('h2', null, title)));
     const grid = h('div', { class: 'hero-grid' });
     const anims = [];
@@ -6408,6 +6540,7 @@ const UI = {
       } },
       cv, h('h3', null, d.name), h('div', { class: 'role' }, d.role), stats,
       h('div', { class: 'small muted', style: 'margin-top:4px' }, d.blurb),
+      h('div', { class: 'small', style: 'margin-top:4px;color:var(--gold)' }, '★ ' + INNATE[id].name, h('div', { class: 'muted', style: 'color:#e2d9ff' }, INNATE[id].desc)),
       !unlocked ? h('div', { class: 'lock' }, '🔒 ' + (d.unlock ? d.unlock.text : '')) : null);
       cards[id] = card;
       grid.append(card);
@@ -6489,6 +6622,45 @@ const UI = {
     Sfx.play('levelup');
     this.show('scrDraft');
     $('touch').hidden = true;
+  },
+
+  // ---------------- merchant shop ----------------
+  shop() {
+    if (!S || S.over) return;
+    S.paused = true;
+    const s = S;
+    const m = s.merchant;
+    const render = () => {
+      const body = $('draftBody');
+      body.innerHTML = '';
+      body.append(h('div', { class: 'draft-title' }, "PIP'S WARES"));
+      body.append(h('div', { class: 'eyebrow' }, MERCHANT_LINES[m.line++ % MERCHANT_LINES.length]));
+      body.append(h('span', { class: 'chip' }, h('i', { class: 'coin' }), h('b', null, fmt(s.quarters) + ' quarters this run')));
+      const wrap = h('div', { class: 'cards', style: '--n:4' });
+      for (const o of shopOffers(s)) {
+        const sold = m.sold[o.id];
+        const can = !sold && s.quarters >= o.cost && (!o.ok || o.ok());
+        wrap.append(h('button', { class: 'card ' + (o.id === 'card' ? 'epic' : 'rare'), disabled: !can, style: can ? '' : 'filter:grayscale(.8) brightness(.7)', onclick: () => {
+          if (!can) { Sfx.play('back'); return; }
+          s.quarters -= o.cost; m.sold[o.id] = true; o.buy(); unlockAch('shopper');
+          Sfx.play('coin'); Sfx.play('heal');
+          render();
+        } },
+        iconCanvas(o.icon, o.color, 72),
+        h('div', { class: 'txt' },
+          h('div', { class: 'rar' }, sold ? 'SOLD OUT' : 'FOR SALE'),
+          h('div', { class: 'nm' }, o.name),
+          h('div', { class: 'lv' }, sold ? '—' : o.cost + '¢'),
+          h('div', { class: 'ds' }, o.desc))));
+      }
+      body.append(wrap);
+      body.append(h('div', { class: 'small muted', style: 'max-width:520px;text-align:center' }, 'Quarters you spend here are not banked for the skill tree. Choose wisely!'));
+      body.append(h('div', { class: 'row' }, h('button', { class: 'btn gold', onclick: () => { Sfx.play('select'); s.paused = false; Input.clearAll(); UI.show(null); } }, 'Leave shop')));
+      UI.show('scrDraft');
+      $('touch').hidden = true;
+    };
+    Sfx.play('coin');
+    render();
   },
 
   // ---------------- pause ----------------
@@ -6685,8 +6857,10 @@ function useTouchControls() {
 
 // ---------------- toasts & achievements ----------------
 function toast(t1, t2, ico = '★', cls = '') {
+  const box = $('toasts');
+  while (box.children.length >= 3) box.firstChild.remove();
   const el = h('div', { class: 'toast ' + cls }, h('div', { class: 'ico' }, ico), h('div', null, h('div', { class: 't1' }, t1), h('div', { class: 't2' }, t2)));
-  $('toasts').append(el);
+  box.append(el);
   setTimeout(() => el.remove(), 4200);
 }
 function unlockAch(id) {
@@ -6757,10 +6931,10 @@ const WorldMap = {
     window.addEventListener('keydown', (e) => {
       if (!this.open_ || UI.current !== 'scrMap') return;
       if (e.code === 'Enter' || e.code === 'KeyJ') { const b = $('mapGo'); if (b) b.click(); }
-      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD'].includes(e.code)) {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) {
         const nodes = this.nodes().filter((n) => n.avail);
         let i = nodes.findIndex((n) => n.id === this.sel);
-        i = (i + (e.code === 'ArrowLeft' || e.code === 'ArrowUp' || e.code === 'KeyA' ? -1 : 1) + nodes.length) % nodes.length;
+        i = (i + (e.code === 'ArrowLeft' || e.code === 'ArrowUp' ? -1 : 1) + nodes.length) % nodes.length;
         this.select(nodes[i].id, true);
       }
     });
@@ -6848,13 +7022,15 @@ const WorldMap = {
       const s = n.side;
       p.append(h('div', { class: 'eyebrow' }, s.kind === 'typing' ? 'Special mode' : s.kind === 'endless' ? 'Arena' : 'Secret'), h('h2', null, s.name), h('p', null, s.blurb));
       if (s.kind === 'endless') p.append(h('div', { class: 'meta-row' }, `Best wave: ${SAVE.endlessBest || 0}`));
+      if (s.kind === 'gauntlet') p.append(h('div', { class: 'meta-row' }, `Best: ${SAVE.gauntletBest || 0}/5 battles`));
       if (!n.avail) { p.append(h('div', { class: 'meta-row' }, `Clear ${LEVEL_BY_ID[s.req].name} to unlock`)); return; }
       const go = h('button', { class: 'btn gold', id: 'mapGo', style: 'width:100%;margin-top:10px', onclick: () => {
         Sfx.play('card');
         if (s.kind === 'typing') Typing.menu();
         else if (s.kind === 'endless') UI.heroes((hero) => Game.startEndless(hero), 'Enter the Colosseum');
         else if (s.kind === 'cow') UI.heroes((hero) => Game.startLevel(COW_LEVEL, hero), 'Moo.');
-      } }, s.kind === 'typing' ? 'Enter the Dojo' : s.kind === 'endless' ? 'Fight!' : 'Moo!');
+        else if (s.kind === 'gauntlet') UI.heroes((hero) => Game.startGauntlet(hero), 'Who runs the Gauntlet?');
+      } }, s.kind === 'typing' ? 'Enter the Dojo' : s.kind === 'endless' ? 'Fight!' : s.kind === 'gauntlet' ? 'Enter the Gauntlet' : 'Moo!');
       p.append(go);
       return;
     }
@@ -6941,6 +7117,7 @@ const WorldMap = {
     const dojo = byId.DOJO, l1 = byId.L1;
     if (dojo && l1) { g.strokeStyle = 'rgba(90,50,20,.45)'; g.lineWidth = 4; g.beginPath(); g.moveTo(l1.x, l1.y); g.lineTo(dojo.x, dojo.y); g.stroke(); }
     if (byId.EC && byId.L3) { g.strokeStyle = 'rgba(90,50,20,.45)'; g.beginPath(); g.moveTo(byId.L3.x, byId.L3.y); g.lineTo(byId.EC.x, byId.EC.y); g.stroke(); }
+    if (byId.GAUNT && byId.L4) { g.strokeStyle = 'rgba(90,50,20,.45)'; g.beginPath(); g.moveTo(byId.EC.x, byId.EC.y); g.lineTo(byId.GAUNT.x, byId.GAUNT.y); g.stroke(); }
     if (byId.COW && l1) { g.strokeStyle = 'rgba(255,120,190,.6)'; g.beginPath(); g.moveTo(175, 1045); g.lineTo(byId.COW.x, byId.COW.y); g.stroke(); }
     g.setLineDash([]);
     // nodes
@@ -7104,7 +7281,7 @@ function drawMapNode(g, n, T, selected) {
   if (avail && !n.cleared && !n.side) { g.strokeStyle = `rgba(255,255,255,${0.5 + Math.sin(T * 4) * 0.3})`; g.lineWidth = 3; g.beginPath(); g.arc(x, y, 30 + (T * 20) % 14, 0, TAU); g.stroke(); }
   // flag banner
   g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(x, y + 22, 22, 6, 0, 0, TAU); g.fill();
-  const col = !avail ? '#8a8398' : n.side ? (n.side.kind === 'typing' ? '#3ee6a8' : n.side.kind === 'cow' ? '#ff9fd0' : '#ff7a2f') : n.cleared ? '#3ee6a8' : BOSSES[n.lvl.end].elite ? '#55c8ff' : '#ff4f73';
+  const col = !avail ? '#8a8398' : n.side ? (n.side.kind === 'typing' ? '#3ee6a8' : n.side.kind === 'cow' ? '#ff9fd0' : n.side.kind === 'gauntlet' ? '#b77cff' : '#ff7a2f') : n.cleared ? '#3ee6a8' : BOSSES[n.lvl.end].elite ? '#55c8ff' : '#ff4f73';
   g.fillStyle = col; g.strokeStyle = OUTLINE; g.lineWidth = 3;
   g.beginPath(); g.arc(x, y, 22, 0, TAU); g.fill(); g.stroke();
   g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.arc(x - 6, y - 7, 8, 0, TAU); g.fill();
@@ -7112,7 +7289,7 @@ function drawMapNode(g, n, T, selected) {
   if (!avail) {
     g.fillStyle = '#3a3350'; g.fillRect(x - 7, y - 3, 14, 11); g.strokeStyle = '#3a3350'; g.lineWidth = 2.5; g.beginPath(); g.arc(x, y - 4, 5, Math.PI, TAU); g.stroke();
   } else if (n.side) {
-    g.font = `16px ${FONT_DISPLAY}`; g.fillText(n.side.kind === 'typing' ? '⌨' : n.side.kind === 'cow' ? 'M' : '∞', x, y + 1);
+    g.font = `16px ${FONT_DISPLAY}`; g.fillText(n.side.kind === 'typing' ? '⌨' : n.side.kind === 'cow' ? 'M' : n.side.kind === 'gauntlet' ? '5x' : '∞', x, y + 1);
   } else {
     g.font = `17px ${FONT_DISPLAY}`; g.fillStyle = '#1b1030'; g.fillText(n.lvl.n, x, y + 1);
     if (!BOSSES[n.lvl.end].elite) { g.fillStyle = '#ffc53d'; g.strokeStyle = OUTLINE; g.lineWidth = 2; starPath(g, x + 17, y - 17, 8, 3.5, 5); g.fill(); g.stroke(); }
@@ -7170,7 +7347,7 @@ const Typing = {
       const el = h('button', { class: 'lesson' + (rec && rec.acc >= 85 ? ' done' : '') + (unlocked ? '' : ' locked'), onclick: () => {
         if (!unlocked) { Sfx.play('back'); toast('Locked', 'Pass the previous lesson with 85% accuracy', '⌨'); return; }
         Sfx.play('card');
-        UI.heroes((hero) => Typing.start(L, hero), 'Choose your warrior');
+        UI.heroes((hero) => Typing.start(L, hero), 'Choose your warrior', () => Typing.menu());
       } },
       h('div', { class: 'eyebrow' }, `Lesson ${i + 1}`),
       h('div', { style: 'font-weight:600' }, L.name),
@@ -7263,7 +7440,9 @@ const Typing = {
     const kind = el === 'fire' ? 'fireball' : el === 'ice' ? 'iceShard' : el === 'earth' ? 'boulder' : 'fireball';
     h.setState('cast'); h.castDur = 0.2; h.castColor = EL[el].c;
     const p = new Projectile({ team: 'hero', owner: h, kind, x: h.x + 30, y: 60, z: h.z, vx: 900, r: 16, dmg: 9999, el, life: 2, pierce: 0, trail: EL[el].c, homing: 20, kx: 300, ky: 300, fall: 100 });
-    p.target = t; t.marked = true;
+    // the strike only hits its own word's enemy; if it somehow misses, the enemy still falls
+    p.target = t; p.only = t; t.marked = true;
+    p.onExpire = () => { if (!t.dead) dealDamage(h, t, { dmg: 9999, ignoreInv: true, noKnock: true }); };
     S.addProj(p);
     Sfx.play(el === 'ice' ? 'ice' : el === 'storm' ? 'zap' : 'fire');
     if (this.combo >= 10 && this.combo % 10 === 0) S.banner(`${this.combo} CHAR STREAK!`, '#ffc53d', 1);
@@ -7287,12 +7466,12 @@ const Typing = {
       const lanes = [30, 80, 130, 175];
       const used = S.enemies.filter((e) => !e.dead).map((e) => e.lane);
       const lane = lanes.findIndex((_, i) => !used.includes(i));
-      const e = new Fighter({ team: 'enemy', kind, def, x: S.camX + VIEW_W + 60, z: lanes[Math.max(0, lane)], hp: 1, dmg: 20, speed: def.speed, ai: 'typing', face: -1 });
+      const e = new Fighter({ team: 'enemy', kind, def, x: S.camX + VIEW_W - 30, z: lanes[Math.max(0, lane)], hp: 1, dmg: 20, speed: def.speed, ai: 'typing', face: -1 });
       e.lane = Math.max(0, lane);
       e.word = w; e.entering = true; e.errors0 = this.misses;
       S.enemies.push(e);
       const lenK = Math.max(1, w.length / 5);
-      this.spawnT = (2.6 + lenK * 0.8) / this.comfort;
+      this.spawnT = (1.5 + lenK * 0.7) / this.comfort;
     }
     if (this.idx >= total && S.enemies.filter((e) => !e.dead).length === 0 && !S.over) {
       S.over = 'win'; S.endTimer = 1.2; this.active = false;
@@ -7303,7 +7482,8 @@ const Typing = {
     if (e.dead || !e.word) return;
     const h = S.hero;
     const L = LESSONS.indexOf(this.lesson);
-    const speed = (22 + L * 3 + e.word.length * 1.2) * this.comfort * (e === this.target ? 0.6 : 1);
+    // walk time to the hero stays readable: longer words walk a little slower
+    const speed = (70 + L * 7) / (1 + e.word.length * 0.06) * this.comfort * (e === this.target ? 0.55 : 1);
     e.vx = -speed; e.vz = 0; e.face = -1;
     if (e.state === 'idle' || e.state === 'walk') { e.state = 'walk'; e.anim = 'walk'; e.walkPhase += dt * 7; }
     if (e.x < h.x + 80 && !e.marked && !e.dead) {
@@ -7393,8 +7573,8 @@ const Typing = {
       unlocks: win && acc >= 85 && next && !(rec.acc >= 85 && rec.prevUnlocked) ? ['Next lesson: ' + next.name] : [],
       tip: acc < 90 ? 'Slow down a little. Accuracy first, speed follows on its own.' : wpm < 20 ? 'Great accuracy! Now try to keep a steady rhythm.' : 'Excellent. Take a short break, then try the next lesson. Short, spaced sessions train best.',
       buttons: [
-        { label: 'Retry', fn: () => UI.heroes((hero) => Typing.start(this.lesson, hero)) },
-        win && next && acc >= 85 ? { label: 'Next lesson', cls: 'gold', fn: () => UI.heroes((hero) => Typing.start(next, hero)) } : null,
+        { label: 'Retry', fn: () => { Game.stopStage(); UI.heroes((hero) => Typing.start(this.lesson, hero), 'Choose your warrior', () => Typing.menu()); } },
+        win && next && acc >= 85 ? { label: 'Next lesson', cls: 'gold', fn: () => { Game.stopStage(); UI.heroes((hero) => Typing.start(next, hero), 'Choose your warrior', () => Typing.menu()); } } : null,
         { label: 'Dojo', cls: 'ghost', fn: () => { Game.stopStage(); Typing.menu(); } },
       ].filter(Boolean),
     });
@@ -7474,7 +7654,84 @@ const Game = {
     UI.show(null);
     this.syncTouch();
   },
+  // ---------------- The Gauntlet: five chained battles, one build ----------------
+  startGauntlet(heroId) {
+    this.lastLevel = 'GAUNTLET'; this.lastHero = heroId;
+    SAVE.stats.runs++; persist();
+    const pool = shuffle(LEVELS.slice());
+    this.gauntlet = { heroId, stage: 0, total: 5, hero: null, quarters: 0, kills: 0, maxCombo: 0, time: 0, pool, path: [] };
+    this.gauntletStage(pool[0], 'safe');
+  },
+  gauntletStage(base, path) {
+    const G = this.gauntlet;
+    const diff = 2 + G.stage * 2;
+    const level = { id: 'G' + G.stage, n: diff, name: base.name, biome: base.biome, pool: base.pool, end: base.end, sections: 2, night: base.night };
+    const risky = path === 'risky';
+    if (G.hero && !risky) G.hero.heal(G.hero.maxHp * 0.4, true);
+    this.state = 'play';
+    this.stage = new Stage({ mode: 'level', level, heroId: G.heroId, carry: G.hero, noKit: G.stage > 0, mods: risky ? { hpMul: 1.25, elite: 0.1, chest: true } : {}, onEnd: (r) => this.endGauntletStage(r) });
+    S.gauntlet = G; S.risky = risky;
+    S.banners = [];
+    S.banner(`GAUNTLET ${G.stage + 1}/${G.total} · ${base.name.toUpperCase()}`, risky ? '#ff4f73' : '#b77cff', 2, true);
+    G.hero = S.hero;
+    UI.show(null);
+    this.syncTouch();
+  },
+  endGauntletStage(result) {
+    const G = this.gauntlet, s = S;
+    G.quarters += s.quarters * (s.risky ? 1.5 : 1);
+    G.kills += s.kills; G.maxCombo = Math.max(G.maxCombo, s.maxCombo); G.time += s.time;
+    if (result === 'win') {
+      G.stage++;
+      SAVE.gauntletBest = Math.max(SAVE.gauntletBest || 0, G.stage);
+      if (G.stage >= G.total) return this.finishGauntlet(true);
+      persist();
+      // crossroads: two paths to choose from
+      const a = G.pool[(G.stage * 2) % G.pool.length], b = G.pool[(G.stage * 2 + 1) % G.pool.length];
+      const body = $('resultsBody');
+      body.innerHTML = '';
+      body.append(h('h2', { class: 'h-display', style: 'font-size:clamp(30px,7vw,52px);color:var(--gold);text-shadow:0 5px 0 #1a0f2e' }, 'CROSSROADS'));
+      body.append(h('div', { class: 'eyebrow' }, `Battle ${G.stage}/${G.total} won · ${Math.round(G.hero.hp)}/${G.hero.maxHp} HP · ${fmt(G.quarters)}¢ so far`));
+      const cards = h('div', { class: 'cards', style: '--n:2' });
+      const opt = (lv, path) => {
+        const boss = BOSSES[lv.end];
+        return h('button', { class: 'card ' + (path === 'risky' ? 'legendary' : 'rare'), onclick: () => { Sfx.play('card'); G.path.push(path); this.gauntletStage(lv, path); } },
+          iconCanvas(path === 'risky' ? 'skull' : 'heart', path === 'risky' ? '#ff4f73' : '#3ee6a8', 72),
+          h('div', { class: 'txt' },
+            h('div', { class: 'rar' }, path === 'risky' ? 'RISKY PATH' : 'SAFE PATH'),
+            h('div', { class: 'nm' }, lv.name),
+            h('div', { class: 'lv' }, (boss.elite ? 'Elite: ' : 'Boss: ') + boss.name),
+            h('div', { class: 'ds' }, path === 'risky' ? 'Tougher enemies and more elites. +50% quarters and a free treasure right away.' : 'Rest first: heal 40% HP before the fight.')));
+      };
+      cards.append(opt(a, 'safe'), opt(b, 'risky'));
+      body.append(cards);
+      body.append(h('div', { class: 'small muted' }, `Next battle difficulty: level ${2 + G.stage * 2}`));
+      this.state = 'menu';
+      UI.show('scrResults');
+      Sfx.playMusic('map');
+      return;
+    }
+    this.finishGauntlet(false);
+  },
+  finishGauntlet(win) {
+    const G = this.gauntlet;
+    const earned = Math.round(win ? G.quarters + 300 : G.quarters * 0.6);
+    SAVE.quarters += earned; SAVE.lifetimeQuarters += earned;
+    if (win) { unlockAch('gauntlet'); SAVE.stats.wins++; }
+    if (SAVE.lifetimeQuarters >= 5000) unlockAch('rich');
+    persist();
+    UI.results({
+      win, title: win ? 'GAUNTLET CLEARED!' : 'THE GAUNTLET WINS',
+      subtitle: `${HEROES[G.heroId].name} · reached battle ${Math.min(G.total, G.stage + (win ? 0 : 1))}/${G.total}`,
+      rows: [['Battles won', `${G.stage}/${G.total}`], ['Path taken', G.path.map((p) => (p === 'risky' ? '☠' : '♥')).join(' ') || '—'], ['Enemies defeated', G.kills], ['Best combo', G.maxCombo], ['Hero level', G.hero ? G.hero.level : 1], ['Quarters earned', '+' + earned + '¢' + (win ? ' (incl. 300 bonus)' : ' (60%)')]],
+      tip: win ? null : pick(TIPS),
+      buttons: [{ label: 'Run it again', cls: 'gold', fn: () => UI.heroes((hero) => Game.startGauntlet(hero), 'Who runs the Gauntlet?') }, { label: 'World map', fn: () => this.quitToMap() }],
+    });
+    this.state = 'menu';
+    Sfx.playMusic(win ? 'victory' : 'map');
+  },
   restart() {
+    if (this.lastLevel === 'GAUNTLET') { UI.heroes((hero) => Game.startGauntlet(hero), 'Who runs the Gauntlet?'); return; }
     if (this.lastLevel === 'ENDLESS') this.startEndless(this.lastHero);
     else if (this.lastLevel) this.startLevel(this.lastLevel, this.lastHero);
   },

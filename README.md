@@ -10,10 +10,13 @@ A roguelite 2.5D brawler for the browser, inspired by *Little Fighter 2* (1999).
 - **Elements.** Fire burns, ice chills and freezes (then shatter the frozen enemy), earth quakes, time slows everything around you (Chrono Bubble, Time Stop), and storm chains lightning.
 - **Skill tree.** 20 permanent upgrades in 4 branches (Might, Guard, Arcana, Fortune), bought with Quarters. Includes a 1UP extra life.
 - **World map.** A procedural parchment continent with 12 levels across 8 regions. Difficulty rises with every level. There are 6 bosses and 6 elites, each boss with its own telegraphed attack patterns.
+- **Heroes with personality.** 6 heroes (one secret), each with a weapon line, a starting element and an innate passive: Hot Streak, Cold Focus, Unstoppable, Borrowed Time, Encore, and Undefined Behavior.
 - **Special modes.**
+  - *The Gauntlet*: 5 chained battles with one build. At each crossroads you pick a safe path (heal) or a risky one (more loot).
   - *Keyboard Warrior*: typing combat with an accuracy-first lesson ladder, adaptive speed and weak-key training.
   - *Endless Colosseum*: survive as many waves as you can.
   - *Overdrive*: fill the meter, then slow time and double your damage.
+- **Pip the Peddler.** A wandering merchant before every boss. Spend this run's quarters on stew, mana, cards or spell upgrades, or bank them for the skill tree.
 - **Gamification.**
   - Stars per level, combo ranks (D → SSS) that boost XP, 31 achievements with toasts, and lifetime stats.
   - Password saves in NES style.
@@ -30,6 +33,7 @@ A roguelite 2.5D brawler for the browser, inspired by *Little Fighter 2* (1999).
 node tools/build.mjs          # concatenates src/ into index.html and dist/rumblevale.html
 node tools/smoke.mjs all      # headless Chromium: screens, bot-played levels, mobile layouts
 node tools/smoke.mjs bosses   # runs every boss pattern
+node tools/flows.mjs          # typing, endless, cow level, unlocks, cheats, password, results
 ```
 Source lives in `src/`:
 - `head.html`, `style.css`, `body.html`

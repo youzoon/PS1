@@ -41,7 +41,7 @@ const Typing = {
       const el = h('button', { class: 'lesson' + (rec && rec.acc >= 85 ? ' done' : '') + (unlocked ? '' : ' locked'), onclick: () => {
         if (!unlocked) { Sfx.play('back'); toast('Locked', 'Pass the previous lesson with 85% accuracy', '⌨'); return; }
         Sfx.play('card');
-        UI.heroes((hero) => Typing.start(L, hero), 'Choose your warrior');
+        UI.heroes((hero) => Typing.start(L, hero), 'Choose your warrior', () => Typing.menu());
       } },
       h('div', { class: 'eyebrow' }, `Lesson ${i + 1}`),
       h('div', { style: 'font-weight:600' }, L.name),
@@ -134,7 +134,9 @@ const Typing = {
     const kind = el === 'fire' ? 'fireball' : el === 'ice' ? 'iceShard' : el === 'earth' ? 'boulder' : 'fireball';
     h.setState('cast'); h.castDur = 0.2; h.castColor = EL[el].c;
     const p = new Projectile({ team: 'hero', owner: h, kind, x: h.x + 30, y: 60, z: h.z, vx: 900, r: 16, dmg: 9999, el, life: 2, pierce: 0, trail: EL[el].c, homing: 20, kx: 300, ky: 300, fall: 100 });
-    p.target = t; t.marked = true;
+    // the strike only hits its own word's enemy; if it somehow misses, the enemy still falls
+    p.target = t; p.only = t; t.marked = true;
+    p.onExpire = () => { if (!t.dead) dealDamage(h, t, { dmg: 9999, ignoreInv: true, noKnock: true }); };
     S.addProj(p);
     Sfx.play(el === 'ice' ? 'ice' : el === 'storm' ? 'zap' : 'fire');
     if (this.combo >= 10 && this.combo % 10 === 0) S.banner(`${this.combo} CHAR STREAK!`, '#ffc53d', 1);
@@ -158,12 +160,12 @@ const Typing = {
       const lanes = [30, 80, 130, 175];
       const used = S.enemies.filter((e) => !e.dead).map((e) => e.lane);
       const lane = lanes.findIndex((_, i) => !used.includes(i));
-      const e = new Fighter({ team: 'enemy', kind, def, x: S.camX + VIEW_W + 60, z: lanes[Math.max(0, lane)], hp: 1, dmg: 20, speed: def.speed, ai: 'typing', face: -1 });
+      const e = new Fighter({ team: 'enemy', kind, def, x: S.camX + VIEW_W - 30, z: lanes[Math.max(0, lane)], hp: 1, dmg: 20, speed: def.speed, ai: 'typing', face: -1 });
       e.lane = Math.max(0, lane);
       e.word = w; e.entering = true; e.errors0 = this.misses;
       S.enemies.push(e);
       const lenK = Math.max(1, w.length / 5);
-      this.spawnT = (2.6 + lenK * 0.8) / this.comfort;
+      this.spawnT = (1.5 + lenK * 0.7) / this.comfort;
     }
     if (this.idx >= total && S.enemies.filter((e) => !e.dead).length === 0 && !S.over) {
       S.over = 'win'; S.endTimer = 1.2; this.active = false;
@@ -174,7 +176,8 @@ const Typing = {
     if (e.dead || !e.word) return;
     const h = S.hero;
     const L = LESSONS.indexOf(this.lesson);
-    const speed = (22 + L * 3 + e.word.length * 1.2) * this.comfort * (e === this.target ? 0.6 : 1);
+    // walk time to the hero stays readable: longer words walk a little slower
+    const speed = (70 + L * 7) / (1 + e.word.length * 0.06) * this.comfort * (e === this.target ? 0.55 : 1);
     e.vx = -speed; e.vz = 0; e.face = -1;
     if (e.state === 'idle' || e.state === 'walk') { e.state = 'walk'; e.anim = 'walk'; e.walkPhase += dt * 7; }
     if (e.x < h.x + 80 && !e.marked && !e.dead) {
@@ -264,8 +267,8 @@ const Typing = {
       unlocks: win && acc >= 85 && next && !(rec.acc >= 85 && rec.prevUnlocked) ? ['Next lesson: ' + next.name] : [],
       tip: acc < 90 ? 'Slow down a little. Accuracy first, speed follows on its own.' : wpm < 20 ? 'Great accuracy! Now try to keep a steady rhythm.' : 'Excellent. Take a short break, then try the next lesson. Short, spaced sessions train best.',
       buttons: [
-        { label: 'Retry', fn: () => UI.heroes((hero) => Typing.start(this.lesson, hero)) },
-        win && next && acc >= 85 ? { label: 'Next lesson', cls: 'gold', fn: () => UI.heroes((hero) => Typing.start(next, hero)) } : null,
+        { label: 'Retry', fn: () => { Game.stopStage(); UI.heroes((hero) => Typing.start(this.lesson, hero), 'Choose your warrior', () => Typing.menu()); } },
+        win && next && acc >= 85 ? { label: 'Next lesson', cls: 'gold', fn: () => { Game.stopStage(); UI.heroes((hero) => Typing.start(next, hero), 'Choose your warrior', () => Typing.menu()); } } : null,
         { label: 'Dojo', cls: 'ghost', fn: () => { Game.stopStage(); Typing.menu(); } },
       ].filter(Boolean),
     });

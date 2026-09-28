@@ -206,6 +206,7 @@ function heroControl(h, dt) {
     if (P.jump) { h.held.dead = false; dropHeld(h); }
     return;
   }
+  if (P.atk && nearMerchant(S, h)) { UI.shop(); return; }
   if (P.atk) {
     const prop = !mv.x && !mv.z ? nearbyProp(h) : null;
     if (prop) { liftProp(h, prop); return; }

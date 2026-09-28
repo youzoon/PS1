@@ -55,10 +55,10 @@ const WorldMap = {
     window.addEventListener('keydown', (e) => {
       if (!this.open_ || UI.current !== 'scrMap') return;
       if (e.code === 'Enter' || e.code === 'KeyJ') { const b = $('mapGo'); if (b) b.click(); }
-      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD'].includes(e.code)) {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) {
         const nodes = this.nodes().filter((n) => n.avail);
         let i = nodes.findIndex((n) => n.id === this.sel);
-        i = (i + (e.code === 'ArrowLeft' || e.code === 'ArrowUp' || e.code === 'KeyA' ? -1 : 1) + nodes.length) % nodes.length;
+        i = (i + (e.code === 'ArrowLeft' || e.code === 'ArrowUp' ? -1 : 1) + nodes.length) % nodes.length;
         this.select(nodes[i].id, true);
       }
     });
@@ -146,13 +146,15 @@ const WorldMap = {
       const s = n.side;
       p.append(h('div', { class: 'eyebrow' }, s.kind === 'typing' ? 'Special mode' : s.kind === 'endless' ? 'Arena' : 'Secret'), h('h2', null, s.name), h('p', null, s.blurb));
       if (s.kind === 'endless') p.append(h('div', { class: 'meta-row' }, `Best wave: ${SAVE.endlessBest || 0}`));
+      if (s.kind === 'gauntlet') p.append(h('div', { class: 'meta-row' }, `Best: ${SAVE.gauntletBest || 0}/5 battles`));
       if (!n.avail) { p.append(h('div', { class: 'meta-row' }, `Clear ${LEVEL_BY_ID[s.req].name} to unlock`)); return; }
       const go = h('button', { class: 'btn gold', id: 'mapGo', style: 'width:100%;margin-top:10px', onclick: () => {
         Sfx.play('card');
         if (s.kind === 'typing') Typing.menu();
         else if (s.kind === 'endless') UI.heroes((hero) => Game.startEndless(hero), 'Enter the Colosseum');
         else if (s.kind === 'cow') UI.heroes((hero) => Game.startLevel(COW_LEVEL, hero), 'Moo.');
-      } }, s.kind === 'typing' ? 'Enter the Dojo' : s.kind === 'endless' ? 'Fight!' : 'Moo!');
+        else if (s.kind === 'gauntlet') UI.heroes((hero) => Game.startGauntlet(hero), 'Who runs the Gauntlet?');
+      } }, s.kind === 'typing' ? 'Enter the Dojo' : s.kind === 'endless' ? 'Fight!' : s.kind === 'gauntlet' ? 'Enter the Gauntlet' : 'Moo!');
       p.append(go);
       return;
     }
@@ -239,6 +241,7 @@ const WorldMap = {
     const dojo = byId.DOJO, l1 = byId.L1;
     if (dojo && l1) { g.strokeStyle = 'rgba(90,50,20,.45)'; g.lineWidth = 4; g.beginPath(); g.moveTo(l1.x, l1.y); g.lineTo(dojo.x, dojo.y); g.stroke(); }
     if (byId.EC && byId.L3) { g.strokeStyle = 'rgba(90,50,20,.45)'; g.beginPath(); g.moveTo(byId.L3.x, byId.L3.y); g.lineTo(byId.EC.x, byId.EC.y); g.stroke(); }
+    if (byId.GAUNT && byId.L4) { g.strokeStyle = 'rgba(90,50,20,.45)'; g.beginPath(); g.moveTo(byId.EC.x, byId.EC.y); g.lineTo(byId.GAUNT.x, byId.GAUNT.y); g.stroke(); }
     if (byId.COW && l1) { g.strokeStyle = 'rgba(255,120,190,.6)'; g.beginPath(); g.moveTo(175, 1045); g.lineTo(byId.COW.x, byId.COW.y); g.stroke(); }
     g.setLineDash([]);
     // nodes
@@ -402,7 +405,7 @@ function drawMapNode(g, n, T, selected) {
   if (avail && !n.cleared && !n.side) { g.strokeStyle = `rgba(255,255,255,${0.5 + Math.sin(T * 4) * 0.3})`; g.lineWidth = 3; g.beginPath(); g.arc(x, y, 30 + (T * 20) % 14, 0, TAU); g.stroke(); }
   // flag banner
   g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(x, y + 22, 22, 6, 0, 0, TAU); g.fill();
-  const col = !avail ? '#8a8398' : n.side ? (n.side.kind === 'typing' ? '#3ee6a8' : n.side.kind === 'cow' ? '#ff9fd0' : '#ff7a2f') : n.cleared ? '#3ee6a8' : BOSSES[n.lvl.end].elite ? '#55c8ff' : '#ff4f73';
+  const col = !avail ? '#8a8398' : n.side ? (n.side.kind === 'typing' ? '#3ee6a8' : n.side.kind === 'cow' ? '#ff9fd0' : n.side.kind === 'gauntlet' ? '#b77cff' : '#ff7a2f') : n.cleared ? '#3ee6a8' : BOSSES[n.lvl.end].elite ? '#55c8ff' : '#ff4f73';
   g.fillStyle = col; g.strokeStyle = OUTLINE; g.lineWidth = 3;
   g.beginPath(); g.arc(x, y, 22, 0, TAU); g.fill(); g.stroke();
   g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.arc(x - 6, y - 7, 8, 0, TAU); g.fill();
@@ -410,7 +413,7 @@ function drawMapNode(g, n, T, selected) {
   if (!avail) {
     g.fillStyle = '#3a3350'; g.fillRect(x - 7, y - 3, 14, 11); g.strokeStyle = '#3a3350'; g.lineWidth = 2.5; g.beginPath(); g.arc(x, y - 4, 5, Math.PI, TAU); g.stroke();
   } else if (n.side) {
-    g.font = `16px ${FONT_DISPLAY}`; g.fillText(n.side.kind === 'typing' ? '⌨' : n.side.kind === 'cow' ? 'M' : '∞', x, y + 1);
+    g.font = `16px ${FONT_DISPLAY}`; g.fillText(n.side.kind === 'typing' ? '⌨' : n.side.kind === 'cow' ? 'M' : n.side.kind === 'gauntlet' ? '5x' : '∞', x, y + 1);
   } else {
     g.font = `17px ${FONT_DISPLAY}`; g.fillStyle = '#1b1030'; g.fillText(n.lvl.n, x, y + 1);
     if (!BOSSES[n.lvl.end].elite) { g.fillStyle = '#ffc53d'; g.strokeStyle = OUTLINE; g.lineWidth = 2; starPath(g, x + 17, y - 17, 8, 3.5, 5); g.fill(); g.stroke(); }

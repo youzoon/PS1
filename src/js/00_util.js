@@ -98,6 +98,7 @@ function defaultSave() {
     secrets: {},
     seenIntro: false,
     endlessBest: 0,
+    gauntletBest: 0,
     typing: { lessons: {}, keyMiss: {}, keyHit: {}, bestWpm: 0 },
     settings: { sfx: 0.8, music: 0.5, shake: true, dmgNums: true, touch: 'auto', hints: true },
     mapPos: 'L1',

@@ -29,11 +29,12 @@ const UI = {
   },
 
   // ---------------- hero select ----------------
-  heroes(onPick, title = 'Choose your fighter') {
+  heroes(onPick, title = 'Choose your fighter', back) {
     const body = $('heroesBody');
     body.innerHTML = '';
+    const goBack = back || (() => { Game.stopStage(); Game.toMap(); });
     body.append(h('div', { class: 'screen-head' },
-      h('button', { class: 'btn small ghost', onclick: () => { Sfx.play('back'); UI.show('scrMap'); } }, '◀ Map'),
+      h('button', { class: 'btn small ghost', onclick: () => { Sfx.play('back'); cancelAnimationFrame(raf); goBack(); } }, back ? '◀ Back' : '◀ Map'),
       h('h2', null, title)));
     const grid = h('div', { class: 'hero-grid' });
     const anims = [];
@@ -54,6 +55,7 @@ const UI = {
       } },
       cv, h('h3', null, d.name), h('div', { class: 'role' }, d.role), stats,
       h('div', { class: 'small muted', style: 'margin-top:4px' }, d.blurb),
+      h('div', { class: 'small', style: 'margin-top:4px;color:var(--gold)' }, '★ ' + INNATE[id].name, h('div', { class: 'muted', style: 'color:#e2d9ff' }, INNATE[id].desc)),
       !unlocked ? h('div', { class: 'lock' }, '🔒 ' + (d.unlock ? d.unlock.text : '')) : null);
       cards[id] = card;
       grid.append(card);
@@ -135,6 +137,45 @@ const UI = {
     Sfx.play('levelup');
     this.show('scrDraft');
     $('touch').hidden = true;
+  },
+
+  // ---------------- merchant shop ----------------
+  shop() {
+    if (!S || S.over) return;
+    S.paused = true;
+    const s = S;
+    const m = s.merchant;
+    const render = () => {
+      const body = $('draftBody');
+      body.innerHTML = '';
+      body.append(h('div', { class: 'draft-title' }, "PIP'S WARES"));
+      body.append(h('div', { class: 'eyebrow' }, MERCHANT_LINES[m.line++ % MERCHANT_LINES.length]));
+      body.append(h('span', { class: 'chip' }, h('i', { class: 'coin' }), h('b', null, fmt(s.quarters) + ' quarters this run')));
+      const wrap = h('div', { class: 'cards', style: '--n:4' });
+      for (const o of shopOffers(s)) {
+        const sold = m.sold[o.id];
+        const can = !sold && s.quarters >= o.cost && (!o.ok || o.ok());
+        wrap.append(h('button', { class: 'card ' + (o.id === 'card' ? 'epic' : 'rare'), disabled: !can, style: can ? '' : 'filter:grayscale(.8) brightness(.7)', onclick: () => {
+          if (!can) { Sfx.play('back'); return; }
+          s.quarters -= o.cost; m.sold[o.id] = true; o.buy(); unlockAch('shopper');
+          Sfx.play('coin'); Sfx.play('heal');
+          render();
+        } },
+        iconCanvas(o.icon, o.color, 72),
+        h('div', { class: 'txt' },
+          h('div', { class: 'rar' }, sold ? 'SOLD OUT' : 'FOR SALE'),
+          h('div', { class: 'nm' }, o.name),
+          h('div', { class: 'lv' }, sold ? '—' : o.cost + '¢'),
+          h('div', { class: 'ds' }, o.desc))));
+      }
+      body.append(wrap);
+      body.append(h('div', { class: 'small muted', style: 'max-width:520px;text-align:center' }, 'Quarters you spend here are not banked for the skill tree. Choose wisely!'));
+      body.append(h('div', { class: 'row' }, h('button', { class: 'btn gold', onclick: () => { Sfx.play('select'); s.paused = false; Input.clearAll(); UI.show(null); } }, 'Leave shop')));
+      UI.show('scrDraft');
+      $('touch').hidden = true;
+    };
+    Sfx.play('coin');
+    render();
   },
 
   // ---------------- pause ----------------
@@ -331,8 +372,10 @@ function useTouchControls() {
 
 // ---------------- toasts & achievements ----------------
 function toast(t1, t2, ico = '★', cls = '') {
+  const box = $('toasts');
+  while (box.children.length >= 3) box.firstChild.remove();
   const el = h('div', { class: 'toast ' + cls }, h('div', { class: 'ico' }, ico), h('div', null, h('div', { class: 't1' }, t1), h('div', { class: 't2' }, t2)));
-  $('toasts').append(el);
+  box.append(el);
   setTimeout(() => el.remove(), 4200);
 }
 function unlockAch(id) {

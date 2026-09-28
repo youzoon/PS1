@@ -42,7 +42,84 @@ const Game = {
     UI.show(null);
     this.syncTouch();
   },
+  // ---------------- The Gauntlet: five chained battles, one build ----------------
+  startGauntlet(heroId) {
+    this.lastLevel = 'GAUNTLET'; this.lastHero = heroId;
+    SAVE.stats.runs++; persist();
+    const pool = shuffle(LEVELS.slice());
+    this.gauntlet = { heroId, stage: 0, total: 5, hero: null, quarters: 0, kills: 0, maxCombo: 0, time: 0, pool, path: [] };
+    this.gauntletStage(pool[0], 'safe');
+  },
+  gauntletStage(base, path) {
+    const G = this.gauntlet;
+    const diff = 2 + G.stage * 2;
+    const level = { id: 'G' + G.stage, n: diff, name: base.name, biome: base.biome, pool: base.pool, end: base.end, sections: 2, night: base.night };
+    const risky = path === 'risky';
+    if (G.hero && !risky) G.hero.heal(G.hero.maxHp * 0.4, true);
+    this.state = 'play';
+    this.stage = new Stage({ mode: 'level', level, heroId: G.heroId, carry: G.hero, noKit: G.stage > 0, mods: risky ? { hpMul: 1.25, elite: 0.1, chest: true } : {}, onEnd: (r) => this.endGauntletStage(r) });
+    S.gauntlet = G; S.risky = risky;
+    S.banners = [];
+    S.banner(`GAUNTLET ${G.stage + 1}/${G.total} · ${base.name.toUpperCase()}`, risky ? '#ff4f73' : '#b77cff', 2, true);
+    G.hero = S.hero;
+    UI.show(null);
+    this.syncTouch();
+  },
+  endGauntletStage(result) {
+    const G = this.gauntlet, s = S;
+    G.quarters += s.quarters * (s.risky ? 1.5 : 1);
+    G.kills += s.kills; G.maxCombo = Math.max(G.maxCombo, s.maxCombo); G.time += s.time;
+    if (result === 'win') {
+      G.stage++;
+      SAVE.gauntletBest = Math.max(SAVE.gauntletBest || 0, G.stage);
+      if (G.stage >= G.total) return this.finishGauntlet(true);
+      persist();
+      // crossroads: two paths to choose from
+      const a = G.pool[(G.stage * 2) % G.pool.length], b = G.pool[(G.stage * 2 + 1) % G.pool.length];
+      const body = $('resultsBody');
+      body.innerHTML = '';
+      body.append(h('h2', { class: 'h-display', style: 'font-size:clamp(30px,7vw,52px);color:var(--gold);text-shadow:0 5px 0 #1a0f2e' }, 'CROSSROADS'));
+      body.append(h('div', { class: 'eyebrow' }, `Battle ${G.stage}/${G.total} won · ${Math.round(G.hero.hp)}/${G.hero.maxHp} HP · ${fmt(G.quarters)}¢ so far`));
+      const cards = h('div', { class: 'cards', style: '--n:2' });
+      const opt = (lv, path) => {
+        const boss = BOSSES[lv.end];
+        return h('button', { class: 'card ' + (path === 'risky' ? 'legendary' : 'rare'), onclick: () => { Sfx.play('card'); G.path.push(path); this.gauntletStage(lv, path); } },
+          iconCanvas(path === 'risky' ? 'skull' : 'heart', path === 'risky' ? '#ff4f73' : '#3ee6a8', 72),
+          h('div', { class: 'txt' },
+            h('div', { class: 'rar' }, path === 'risky' ? 'RISKY PATH' : 'SAFE PATH'),
+            h('div', { class: 'nm' }, lv.name),
+            h('div', { class: 'lv' }, (boss.elite ? 'Elite: ' : 'Boss: ') + boss.name),
+            h('div', { class: 'ds' }, path === 'risky' ? 'Tougher enemies and more elites. +50% quarters and a free treasure right away.' : 'Rest first: heal 40% HP before the fight.')));
+      };
+      cards.append(opt(a, 'safe'), opt(b, 'risky'));
+      body.append(cards);
+      body.append(h('div', { class: 'small muted' }, `Next battle difficulty: level ${2 + G.stage * 2}`));
+      this.state = 'menu';
+      UI.show('scrResults');
+      Sfx.playMusic('map');
+      return;
+    }
+    this.finishGauntlet(false);
+  },
+  finishGauntlet(win) {
+    const G = this.gauntlet;
+    const earned = Math.round(win ? G.quarters + 300 : G.quarters * 0.6);
+    SAVE.quarters += earned; SAVE.lifetimeQuarters += earned;
+    if (win) { unlockAch('gauntlet'); SAVE.stats.wins++; }
+    if (SAVE.lifetimeQuarters >= 5000) unlockAch('rich');
+    persist();
+    UI.results({
+      win, title: win ? 'GAUNTLET CLEARED!' : 'THE GAUNTLET WINS',
+      subtitle: `${HEROES[G.heroId].name} · reached battle ${Math.min(G.total, G.stage + (win ? 0 : 1))}/${G.total}`,
+      rows: [['Battles won', `${G.stage}/${G.total}`], ['Path taken', G.path.map((p) => (p === 'risky' ? '☠' : '♥')).join(' ') || '—'], ['Enemies defeated', G.kills], ['Best combo', G.maxCombo], ['Hero level', G.hero ? G.hero.level : 1], ['Quarters earned', '+' + earned + '¢' + (win ? ' (incl. 300 bonus)' : ' (60%)')]],
+      tip: win ? null : pick(TIPS),
+      buttons: [{ label: 'Run it again', cls: 'gold', fn: () => UI.heroes((hero) => Game.startGauntlet(hero), 'Who runs the Gauntlet?') }, { label: 'World map', fn: () => this.quitToMap() }],
+    });
+    this.state = 'menu';
+    Sfx.playMusic(win ? 'victory' : 'map');
+  },
   restart() {
+    if (this.lastLevel === 'GAUNTLET') { UI.heroes((hero) => Game.startGauntlet(hero), 'Who runs the Gauntlet?'); return; }
     if (this.lastLevel === 'ENDLESS') this.startEndless(this.lastHero);
     else if (this.lastLevel) this.startLevel(this.lastLevel, this.lastHero);
   },

@@ -274,6 +274,9 @@ function dealDamage(att, tgt, info) {
     if (hero.hp < hero.maxHp * 0.35) dmg *= 1 + st.berserk;
     if (hero.overdrive > 0) dmg *= 2;
     if (info.el === 'storm' && hero.cards.duo_plasma && tgt.st.burn > 0) dmg *= 1.4;
+    const hid = hero.hdef.id;
+    if (hid === 'glitch' && info.melee && Math.random() < 0.1) { dmg *= 3; Floaters.add(tgt.x, scrY(tgt.z, tgt.h + 40), 'CRITICAL ERROR', { color: '#ff3df2', size: 18, font: FONT_PIXEL }); }
+    if (hid === 'bruno' && info.kx) info = Object.assign({}, info, { kx: info.kx * 1.25 });
   }
   // blocking
   if (!info.dot && !info.unblockable && tgt.state === 'block' && att && tgt.isFacing(att)) {
@@ -284,6 +287,11 @@ function dealDamage(att, tgt, info) {
     Sfx.play('block');
     spark(tgt.x + tgt.face * 16, tgt.z, tgt.y + tgt.h * 0.55, '#bfe9ff', 6);
     S.hitstop = Math.max(S.hitstop, 0.03);
+    if (tgt.isHero && tgt.hdef.id === 'mira') {
+      tgt.mp = Math.min(tgt.maxMp, tgt.mp + 6);
+      if (att && !att.isHero) { att.st.chill += 1; att.st.chillT = 3; }
+      Particles.burst(tgt.x + tgt.face * 20, scrY(tgt.z, 60), 5, { speed: 120, life: 0.4, size: 3, colors: ['#bff5ff', '#7fe3ff'], type: 'shard' });
+    }
     if (tgt.isHero) { tgt.guard = (tgt.guard || 0) + info.dmg; if (tgt.guard > tgt.maxHp * 0.5) { tgt.guard = 0; tgt.setState('stun'); tgt.stunDur = 0.9; Floaters.add(tgt.x, scrY(tgt.z, tgt.h + 20), 'GUARD BREAK', { color: '#ff4f73', size: 18 }); } }
     if (!tgt.isHero && tgt.def.blocker) { tgt.blockHits = (tgt.blockHits || 0) + 1; }
     if (tgt.hp <= 0) killFighter(tgt, att, info);
@@ -329,6 +337,14 @@ function dealDamage(att, tgt, info) {
     hero.addOverdrive(dmg * 0.3);
     if (hero.stats.lifesteal > 0) hero.heal(dmg * hero.stats.lifesteal, true);
     S.dmgDealt += dmg;
+  }
+  if (tgt.isHero && !info.dot && tgt.hdef.id === 'kit' && S.time - (tgt.kitT ?? -99) > 8) {
+    // Borrowed Time: everything nearby slows down for a moment
+    tgt.kitT = S.time;
+    for (const e of S.enemies) if (!e.dead && Math.abs(e.x - tgt.x) < 280) e.st.slowT = Math.max(e.st.slowT, 1.8);
+    Particles.add({ x: tgt.x, y: scrY(tgt.z, 0), type: 'ring', size: 200, life: 0.5, color: '#c58cff' });
+    Floaters.add(tgt.x, scrY(tgt.z, tgt.h + 50), 'BORROWED TIME', { color: '#c58cff', size: 18 });
+    Sfx.play('time');
   }
   if (tgt.isHero) {
     S.tookDamage = true;
@@ -389,6 +405,7 @@ function react(tgt, att, info) {
   }
   tgt.fall += info.fall || 20;
   if (tgt.isHero && tgt.overdrive > 0) return; // super armor during overdrive
+  if (tgt.isHero && tgt.hdef.id === 'bruno' && tgt.state === 'attack' && (info.ky || 0) < 250) { tgt.fall = Math.min(tgt.fall, 60); return; }
   if (tgt.state === 'air' || tgt.fall >= 100 || (info.ky || 0) >= 200) {
     // launch
     tgt.setState('air');
@@ -487,6 +504,7 @@ class Projectile {
     const targets = this.team === 'hero' ? S.enemies : S.heroes;
     for (const f of targets) {
       if (f.dead || this.hitIds.has(f.id)) continue;
+      if (this.only && f !== this.only) continue;
       if (Math.abs(f.x - this.x) > this.r + f.w * 0.5) continue;
       if (Math.abs(f.z - this.z) > this.rz) continue;
       const fy = f.y + (f.flying ? -10 : 0);

@@ -88,6 +88,15 @@ const HEROES = {
   },
 };
 const HERO_ORDER = ['rook', 'mira', 'bruno', 'kit', 'volta', 'glitch'];
+// innate passives: each hero plays differently, not just with different numbers
+const INNATE = {
+  rook: { name: 'Hot Streak', desc: 'Every 2nd combo finisher launches a free fireball.' },
+  mira: { name: 'Cold Focus', desc: 'Blocking restores MP and chills the attacker.' },
+  bruno: { name: 'Unstoppable', desc: 'Cannot be flinched while swinging. Hits knock back further.' },
+  kit: { name: 'Borrowed Time', desc: 'Taking a hit slows nearby enemies (8s cooldown).' },
+  volta: { name: 'Encore', desc: 'Every 12th hit fires a free chain lightning.' },
+  glitch: { name: 'Undefined Behavior', desc: '10% chance for a triple-damage CRITICAL ERROR.' },
+};
 
 // ---------------- enemies ----------------
 // ai: brawler | ranged | bomber | hopper | flyer | tank | caster | healer | charger
@@ -213,6 +222,7 @@ const SIDE = [
   { id: 'DOJO', name: 'Keyboard Warrior Dojo', kind: 'typing', x: 700, y: 1010, blurb: 'Special mode: defeat enemies by typing their words. Starts with the home row and builds to full sentences.' },
   { id: 'EC', name: 'Endless Colosseum', kind: 'endless', x: 860, y: 740, req: 'L3', blurb: 'Survive wave after wave. Your best wave is saved.' },
   { id: 'COW', name: '???', kind: 'cow', x: 120, y: 620, secret: true, blurb: 'There is no cow level.' },
+  { id: 'GAUNT', name: 'The Gauntlet', kind: 'gauntlet', x: 1080, y: 650, req: 'L4', blurb: 'Special mode: five battles in a row. Keep your build, pick your path at every crossroads, and see how far you get.' },
 ];
 const LEVEL_BY_ID = Object.fromEntries(LEVELS.map((l) => [l.id, l]));
 
@@ -355,6 +365,8 @@ const ACH = [
   { id: 'overdrive', name: 'Limit Break', desc: 'Trigger Overdrive.' },
   { id: 'kills1000', name: 'Rumble Veteran', desc: 'Defeat 1,000 enemies.' },
   { id: 'ufo', name: 'The Truth Is Out There', desc: 'Find the crashed UFO on the map.' },
+  { id: 'gauntlet', name: 'Ran the Gauntlet', desc: 'Survive all five battles of The Gauntlet.' },
+  { id: 'shopper', name: 'Valued Customer', desc: 'Buy something from Pip the Peddler.' },
   { id: 'throw', name: 'Yeet', desc: 'Defeat an enemy with a thrown object.' },
 ];
 
