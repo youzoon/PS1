@@ -113,7 +113,7 @@ Side locations on the map:
 - **Elite modifiers:** Shielded, Swift, Vampiric, Explosive, Giant
 
 ## Special modes
-- **Keyboard Warrior:** typing combat with a lesson ladder, see RESEARCH §5.
+- **Keyboard Warrior:** typing combat with a lesson ladder, see RESEARCH §5. It is a hidden mode: tap the cloud at the top right of the title screen 5 times to reveal it in the menu and on the map.
 - **Endless Colosseum:** waves until you fall, with a local high score.
 - **Overdrive** (in any fight): fill the meter by dealing damage, then trigger it. Time slows for everyone else, you glow gold, and damage is ×2 for 6 s.
 

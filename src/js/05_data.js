@@ -367,6 +367,7 @@ const ACH = [
   { id: 'overdrive', name: 'Limit Break', desc: 'Trigger Overdrive.' },
   { id: 'kills1000', name: 'Rumble Veteran', desc: 'Defeat 1,000 enemies.' },
   { id: 'ufo', name: 'The Truth Is Out There', desc: 'Find the crashed UFO on the map.' },
+  { id: 'cloud', name: 'Head in the Clouds', desc: 'Find the secret hiding on the title screen.' },
   { id: 'gauntlet', name: 'Ran the Gauntlet', desc: 'Survive all five battles of The Gauntlet.' },
   { id: 'shopper', name: 'Valued Customer', desc: 'Buy something from Pip the Peddler.' },
   { id: 'lootgob', name: 'Gotcha!', desc: 'Catch a Loot Goblin before it escapes.' },

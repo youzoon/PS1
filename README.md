@@ -13,7 +13,7 @@ A roguelite 2.5D brawler for the browser, inspired by *Little Fighter 2* (1999).
 - **Heroes with personality.** 6 heroes (one secret), each with a weapon line, a starting element and an innate passive: Hot Streak, Cold Focus, Unstoppable, Borrowed Time, Encore, and Undefined Behavior.
 - **Special modes.**
   - *The Gauntlet*: 5 chained battles with one build. At each crossroads you pick a safe path (heal) or a risky one (more loot).
-  - *Keyboard Warrior*: typing combat with an accuracy-first lesson ladder, adaptive speed and weak-key training.
+  - *Keyboard Warrior* (secret): typing combat with an accuracy-first lesson ladder, adaptive speed and weak-key training. To unlock it, tap the funny cloud on the title screen 5 times.
   - *Endless Colosseum*: survive as many waves as you can.
   - *Overdrive*: fill the meter, then slow time and double your damage.
 - **Pip the Peddler.** A wandering merchant before every boss. Spend this run's quarters on stew, mana, cards or spell upgrades, or bank them for the skill tree.

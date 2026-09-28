@@ -75,6 +75,7 @@ const WorldMap = {
     for (const l of LEVELS) out.push({ id: l.id, x: l.x, y: l.y, lvl: l, avail: levelAvailable(l.id), cleared: !!SAVE.cleared[l.id], stars: SAVE.stars[l.id] || 0 });
     for (const s of SIDE) {
       if (s.secret && !SAVE.secrets.cow) continue;
+      if (s.kind === 'typing' && !SAVE.secrets.typing) continue;
       out.push({ id: s.id, x: s.x, y: s.y, side: s, avail: !s.req || !!SAVE.cleared[s.req] });
     }
     return out;
@@ -118,11 +119,11 @@ const WorldMap = {
     // secrets first
     if (Math.hypot(mx - 175, my - 1045) < 30) {
       this.cowClicks++; Sfx.play('moo');
-      if (this.cowClicks >= 10 && !SAVE.secrets.cow) { SAVE.secrets.cow = true; persist(); unlockAch('cow'); toast('Moo.', 'A secret location has appeared…', '🐄'); this.render(); }
+      if (this.cowClicks >= 10 && !SAVE.secrets.cow) { SAVE.secrets.cow = true; persist(); unlockAch('cow', true); toast('Moo.', 'A secret location has appeared…', '🐄'); this.render(); }
       else if (!SAVE.secrets.cow) toast('Moo?', `${10 - this.cowClicks} more…`, '🐄');
       return;
     }
-    if (Math.hypot(mx - 1010, my - 180) < 40) { unlockAch('ufo'); toast('The truth is out there', 'A crashed saucer. Someone left a floppy inside.', '🛸'); Sfx.play('dialup'); return; }
+    if (Math.hypot(mx - 1010, my - 180) < 40) { unlockAch('ufo', true); toast('The truth is out there', 'A crashed saucer. Someone left a floppy inside.', '🛸'); Sfx.play('dialup'); return; }
     let best = null, bd = 44 / Math.min(1, this.cam.z);
     for (const n of this.nodes()) { const d = Math.hypot(n.x - mx, n.y - my); if (d < bd) { bd = d; best = n; } }
     if (best) { Sfx.play('select'); this.select(best.id, true); }

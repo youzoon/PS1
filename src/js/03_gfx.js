@@ -17,7 +17,7 @@ const EL = {
 };
 const canvas = $('game');
 const ctx = canvas.getContext('2d');
-const View = { scale: 1, cssW: 0, cssH: 0, left: 0, top: 0, dpr: 1, portrait: false, hud: 1 };
+const View = { scale: 1, cssW: 0, cssH: 0, left: 0, top: 0, dpr: 1, portrait: false, hud: 1, qualityCap: 2 };
 
 function resize() {
   const W = window.innerWidth, Hh = window.innerHeight;
@@ -40,7 +40,7 @@ function resize() {
   }
   View.cssW = gw; View.cssH = gh; View.left = left; View.top = top;
   const mobile = Math.min(W, Hh) < 600;
-  View.dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.75 : 2);
+  View.dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.75 : 2, View.qualityCap);
   canvas.style.width = gw + 'px'; canvas.style.height = gh + 'px';
   canvas.style.left = left + 'px'; canvas.style.top = top + 'px';
   canvas.width = Math.round(gw * View.dpr); canvas.height = Math.round(gh * View.dpr);

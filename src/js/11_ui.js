@@ -25,7 +25,8 @@ const UI = {
     Game.startDemo();
     this.show('scrTitle');
     Sfx.playMusic('title');
-    $('bTyping').disabled = false;
+    syncTitleMenu(false);
+    Cloud.start();
   },
 
   // ---------------- hero select ----------------
@@ -260,7 +261,7 @@ const UI = {
             if (SAVE.quarters < cost) { Sfx.play('back'); toast('Not enough quarters', `Need ${fmt(cost)}¢`, '¢'); return; }
             SAVE.quarters -= cost; SAVE.skills[s.id] = r + 1; persist();
             Sfx.play('levelup');
-            if (SKILLS.reduce((a, q) => a + skillRank(q.id), 0) >= 10) unlockAch('skill10');
+            if (SKILLS.reduce((a, q) => a + skillRank(q.id), 0) >= 10) unlockAch('skill10', true);
             render();
           } },
           iconCanvas(s.icon, br.color, 40),
@@ -379,12 +380,120 @@ function toast(t1, t2, ico = '★', cls = '') {
   box.append(el);
   setTimeout(() => el.remove(), 4200);
 }
-function unlockAch(id) {
-  if (SAVE.ach[id] || (S && S.mode === 'demo')) return;
+// force = unlocked from menus/secrets, so it counts even while the title demo fight runs
+function unlockAch(id, force) {
+  if (SAVE.ach[id] || (S && S.mode === 'demo' && !force)) return;
   const a = ACH.find((x) => x.id === id);
   if (!a) return;
   SAVE.ach[id] = Date.now();
   persist();
   toast('Achievement unlocked · 50G', a.name, '🏆');
   Sfx.play('coin');
+}
+
+// ---------------- the secret cloud on the title screen ----------------
+// Tap it five times to reveal the Keyboard Warrior special mode.
+const CLOUD_LINES = ['Hehe!', 'That tickles!', 'Stop it!', 'Okay, okay…', 'Fine! A secret for you!'];
+const CLOUD_GIGGLES = ['Hihi!', 'Boop!', 'Again?', 'Wheee!', 'Type faster!'];
+const Cloud = {
+  taps: 0, t: 0, squish: 0, raf: 0, sayT: 0, sparks: [],
+  init() {
+    $('secretCloud').addEventListener('click', () => this.tap());
+  },
+  start() {
+    cancelAnimationFrame(this.raf);
+    let last = performance.now();
+    const loop = (now) => {
+      if (UI.current !== 'scrTitle') return;
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      this.t += dt; this.squish = Math.max(0, this.squish - dt * 4);
+      if (this.sayT > 0) { this.sayT -= dt; if (this.sayT <= 0) $('cloudSay').hidden = true; }
+      this.draw(dt);
+      this.raf = requestAnimationFrame(loop);
+    };
+    this.raf = requestAnimationFrame(loop);
+  },
+  say(text) { const el = $('cloudSay'); el.textContent = text; el.hidden = false; el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; this.sayT = 1.6; },
+  tap() {
+    Sfx.init();
+    this.squish = 1;
+    for (let i = 0; i < 8; i++) this.sparks.push({ x: 60 + R(-30, 30), y: 50 + R(-10, 10), vx: R(-60, 60), vy: R(-90, -20), t: 0.7, c: pick(['#ffc53d', '#55c8ff', '#ff9fd0']) });
+    if (SAVE.secrets.typing) { Sfx.play('gem'); this.say(pick(CLOUD_GIGGLES)); return; }
+    this.taps++;
+    Sfx.play(this.taps < 5 ? 'gem' : 'cheat');
+    this.say(CLOUD_LINES[Math.min(this.taps, 5) - 1]);
+    if (this.taps >= 5) {
+      SAVE.secrets.typing = true; persist();
+      for (let i = 0; i < 30; i++) this.sparks.push({ x: 60, y: 46, vx: R(-140, 140), vy: R(-160, 60), t: 1.1, c: pick(['#ffc53d', '#3ee6a8', '#ff4f73', '#55c8ff']) });
+      Sfx.play('levelup');
+      syncTitleMenu(true);
+      toast('Secret mode unlocked', 'Keyboard Warrior is now in the menu', '⌨');
+      unlockAch('cloud', true);
+    }
+  },
+  draw(dt) {
+    const cv = $('cloudCv'), g = cv.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+    g.setTransform(2, 0, 0, 2, 0, 0);
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    const T = this.t, sq = this.squish;
+    const bob = Math.sin(T * 2) * 3;
+    const unlocked = !!SAVE.secrets.typing;
+    const mood = unlocked ? 'star' : ['idle', 'happy', 'shock', 'grump', 'dizzy', 'star'][Math.min(this.taps, 5)];
+    g.save();
+    g.translate(60, 48 + bob);
+    g.scale(1 + sq * 0.18, 1 - sq * 0.16);
+    g.rotate(Math.sin(T * 1.3) * 0.04 + (mood === 'dizzy' ? Math.sin(T * 9) * 0.08 : 0));
+    const puffs = [[-32, 6, 17], [-14, -8, 22], [10, -12, 25], [32, 2, 18], [0, 8, 24], [-24, 12, 14], [22, 12, 15]];
+    // outline pass then fill pass gives one merged silhouette
+    g.fillStyle = OUTLINE;
+    for (const [x, y, r] of puffs) { g.beginPath(); g.arc(x, y, r + 3, 0, TAU); g.fill(); }
+    g.fillStyle = '#ffffff';
+    for (const [x, y, r] of puffs) { g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); }
+    g.save();
+    g.beginPath(); for (const [x, y, r] of puffs) { g.moveTo(x + r, y); g.arc(x, y, r, 0, TAU); } g.clip();
+    g.fillStyle = '#d6e8ff'; g.beginPath(); g.ellipse(0, 26, 52, 16, 0, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.ellipse(-8, -24, 14, 6, -0.3, 0, TAU); g.fill();
+    g.restore();
+    // face
+    const blink = (T % 3.2) < 0.12 && mood === 'idle';
+    g.strokeStyle = OUTLINE; g.fillStyle = OUTLINE; g.lineWidth = 2.6;
+    const eye = (x) => {
+      const y = 2;
+      if (mood === 'happy') { g.beginPath(); g.arc(x, y + 2, 4.5, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
+      else if (mood === 'shock') { g.fillStyle = '#fff'; g.beginPath(); g.arc(x, y, 6, 0, TAU); g.fill(); g.stroke(); g.fillStyle = OUTLINE; g.beginPath(); g.arc(x, y, 2.2, 0, TAU); g.fill(); }
+      else if (mood === 'grump') { g.beginPath(); g.moveTo(x - 5, y - 1); g.lineTo(x + 5, y + 1); g.stroke(); g.beginPath(); g.arc(x, y + 3, 2.2, 0, TAU); g.fill(); }
+      else if (mood === 'dizzy') { g.beginPath(); for (let a = 0; a < TAU * 1.6; a += 0.35) { const r = a * 0.9; g.lineTo(x + Math.cos(a + T * 8) * r, y + Math.sin(a + T * 8) * r); } g.stroke(); }
+      else if (mood === 'star') { g.fillStyle = '#ffc53d'; starPath(g, x, y, 6.5, 2.8, 5); g.fill(); g.stroke(); g.fillStyle = OUTLINE; }
+      else if (blink) { g.beginPath(); g.moveTo(x - 4, y); g.lineTo(x + 4, y); g.stroke(); }
+      else { g.beginPath(); g.ellipse(x, y, 3.2, 4.2, 0, 0, TAU); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(x + 1, y - 1.5, 1.2, 0, TAU); g.fill(); g.fillStyle = OUTLINE; }
+    };
+    eye(-11); eye(11);
+    // cheeks
+    g.fillStyle = 'rgba(255,110,150,.55)'; g.beginPath(); g.ellipse(-20, 10, 5, 3, 0, 0, TAU); g.ellipse(20, 10, 5, 3, 0, 0, TAU); g.fill();
+    // mouth
+    g.strokeStyle = OUTLINE; g.fillStyle = '#5a1030'; g.lineWidth = 2.4;
+    if (mood === 'shock') { g.beginPath(); g.ellipse(0, 14, 4, 5, 0, 0, TAU); g.fill(); g.stroke(); }
+    else if (mood === 'grump') { g.beginPath(); g.arc(0, 17, 4, Math.PI * 1.15, Math.PI * 1.85); g.stroke(); }
+    else if (mood === 'dizzy') { g.beginPath(); for (let i = 0; i <= 6; i++) g.lineTo(-6 + i * 2, 13 + (i % 2 ? 2 : -1)); g.stroke(); }
+    else if (mood === 'happy' || mood === 'star') { g.beginPath(); g.arc(0, 10, 6, 0.15, Math.PI - 0.15); g.closePath(); g.fill(); g.stroke(); g.fillStyle = '#ff9fb8'; g.beginPath(); g.ellipse(0, 14, 3, 1.6, 0, 0, TAU); g.fill(); }
+    else { g.beginPath(); g.arc(0, 9, 4, 0.3, Math.PI - 0.3); g.stroke(); }
+    g.restore();
+    // a hint of a secret: a tiny sparkle now and then (only before unlocking)
+    if (!unlocked && Math.random() < dt * 0.8) this.sparks.push({ x: 60 + R(-40, 40), y: 30 + R(-10, 20), vx: 0, vy: -10, t: 0.8, c: '#fff4c2' });
+    for (let i = this.sparks.length - 1; i >= 0; i--) {
+      const p = this.sparks[i];
+      p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 120 * dt;
+      if (p.t <= 0) { this.sparks.splice(i, 1); continue; }
+      g.globalAlpha = Math.min(1, p.t * 2); g.fillStyle = p.c; starPath(g, p.x, p.y, 3.5, 1.5, 4); g.fill();
+    }
+    g.globalAlpha = 1;
+  },
+};
+function syncTitleMenu(reveal) {
+  const on = !!SAVE.secrets.typing;
+  const b = $('bTyping');
+  b.hidden = !on;
+  b.classList.toggle('revealed', !!reveal);
+  $('titleMenu').classList.toggle('three', !on);
 }

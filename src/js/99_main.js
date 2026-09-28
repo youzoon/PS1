@@ -223,7 +223,7 @@ const Game = {
     if (!CHEATS[code]) return false;
     Sfx.play('cheat');
     const inRun = S && S.mode !== 'demo' && Game.state === 'play';
-    const markCheat = () => { SAVE.stats.cheats++; unlockAch('cheat'); if (inRun) S.cheated = true; this.cheatedRun = true; };
+    const markCheat = () => { SAVE.stats.cheats++; unlockAch('cheat', true); if (inRun) S.cheated = true; this.cheatedRun = true; };
     let msg = CHEATS[code];
     switch (code) {
       case 'IDDQD': this.cheats.god = !this.cheats.god; if (S) S.god = this.cheats.god; msg += this.cheats.god ? ' ON' : ' OFF'; markCheat(); break;
@@ -231,11 +231,11 @@ const Game = {
         this.cheats.idkfa = true; markCheat();
         if (inRun) { const hh = S.hero; for (const id of shuffle(BASE_SPELLS.slice())) { if (hh.spells.length >= 3) break; if (!hh.spells.find((s) => s.id === id)) hh.spells.push({ id, lvl: 5, cd: 0 }); } for (const s of hh.spells) { if (s.lvl < 5) s.lvl = 5; hh.cards[s.id] = s.lvl; } this.syncTouch(); }
         break;
-      case 'THEREISNOCOWLEVEL': SAVE.secrets.cow = true; unlockAch('cow'); if (WorldMap.img) WorldMap.render(); msg = 'There is no cow level. (Check the map.)'; break;
+      case 'THEREISNOCOWLEVEL': SAVE.secrets.cow = true; unlockAch('cow', true); if (WorldMap.img) WorldMap.render(); msg = 'There is no cow level. (Check the map.)'; break;
       case 'ROSEBUD': SAVE.quarters += 1000; SAVE.lifetimeQuarters += 1000; markCheat(); break;
       case 'HESOYAM': if (inRun) { S.hero.hp = S.hero.maxHp; S.hero.mp = S.hero.maxMp; S.quarters += 250; } else SAVE.quarters += 250; markCheat(); break;
       case 'BIGHEAD': BIGHEAD = !BIGHEAD; msg += BIGHEAD ? ' ON' : ' OFF'; break;
-      case 'XYZZY': unlockAch('xyzzy'); msg = 'Nothing happens.'; break;
+      case 'XYZZY': unlockAch('xyzzy', true); msg = 'Nothing happens.'; break;
       case 'NOCLIP': this.cheats.noclip = !this.cheats.noclip; if (S) S.noclip = this.cheats.noclip; msg += this.cheats.noclip ? ' ON' : ' OFF'; markCheat(); break;
       case 'ALLYOURBASE': this.cheats.unlockAll = true; msg = 'ARE BELONG TO US. All levels unlocked (this session).'; markCheat(); if (WorldMap.open_) WorldMap.select(WorldMap.sel, false); break;
       case 'KLAPAUCIUS': if (inRun) for (let i = 0; i < 40; i++) S.addPickup(new Pickup({ kind: 'xp', value: 4, x: S.hero.x + R(-200, 200), z: R(0, DEPTH), y: 200 })); markCheat(); break;
@@ -304,7 +304,18 @@ function frame(now) {
       S.update(dt);
       if (S && S.mode === 'typing') Typing.update(dt);
     }
-    if (Game.state === 'play') SAVE.stats.playTime += dt;
+    if (Game.state === 'play') {
+      SAVE.stats.playTime += dt;
+      // adaptive resolution: if we can't hold ~45 fps for a few seconds, render at a lower pixel ratio
+      const P = Game.perf || (Game.perf = { t: 0, n: 0, slow: 0 });
+      P.t += dt; P.n++;
+      if (P.t >= 3) {
+        const avg = P.t / P.n;
+        P.slow = avg > 0.022 && !S.paused ? P.slow + 1 : 0;
+        P.t = 0; P.n = 0;
+        if (P.slow >= 1 && View.dpr > 1) { View.qualityCap = Math.max(1, View.dpr - 0.35); resize(); if (S && S.bg) S.bg.build(); }
+      }
+    }
     const showGame = Game.stage && S && UI.current !== 'scrMap' && UI.current !== 'scrHeroes' && UI.current !== 'scrSkills' && UI.current !== 'scrTrophies' && UI.current !== 'scrSettings' && UI.current !== 'scrTypingMenu';
     if (showGame) {
       ctx.setTransform(View.scale, 0, 0, View.scale, 0, 0);
@@ -354,10 +365,11 @@ function boot() {
   $('mapTrophies').onclick = () => { Sfx.play('select'); UI.trophies(() => Game.toMap()); };
   $('mapSettings').onclick = () => { Sfx.play('select'); UI.settings(() => Game.toMap()); };
   $('pauseBtn').onclick = () => UI.pause();
+  Cloud.init();
   Input.on('konami', () => {
     if (!SAVE.heroes.glitch) { SAVE.heroes.glitch = true; persist(); toast('+30 LIVES', 'Just kidding. Secret hero GL!TCH unlocked!', '↑'); }
     else toast('+30 LIVES', 'You already know the code.', '↑');
-    unlockAch('konami'); Sfx.play('cheat');
+    unlockAch('konami', true); Sfx.play('cheat');
   });
   Input.on('cheat', (buf) => { for (const code in CHEATS) if (buf.endsWith(code)) { Game.tryCheat(code); Input.resetCheat(); break; } });
   // results screen remembers itself so the skill tree can return to it
@@ -373,6 +385,7 @@ function boot() {
   requestAnimationFrame(frame);
   // debugging / automated test hooks
   window.__rv = { Game, UI, SAVE: () => SAVE, S: () => S, LEVELS, Input, WorldMap, Typing, setSave: (s) => { SAVE = mergeSave(defaultSave(), s); } };
+  window.__dbg = { drawHUD, Particles, drawFighter, drawProp };
   // dev helper: a pose sheet of every hero and enemy (used by tools/ for visual checks)
   window.__drawSheet = (g) => {
     const poses = [['idle', 0.2], ['walk', 0.3], ['run', 0.3], ['jump', 0.1], ['attack:jab', 0.1], ['attack:upper', 0.14], ['attack:swing', 0.16], ['attack:slam', 0.3], ['attack:thrust', 0.08], ['block', 0.1], ['cast', 0.2], ['hurt', 0.1], ['down', 0.1], ['win', 0.2]];

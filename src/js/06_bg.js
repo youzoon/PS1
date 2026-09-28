@@ -955,8 +955,8 @@ function createBackground(biomeId, levelSeed, night) {
       for (let k = 0; k < 8; k++) ctx.lineTo(x - 50 + k * 14, base - 18 - ((k * 37 + i * 11) % 16) - Math.sin(T * 2 + k + i) * 2);
       ctx.lineTo(x + 70, base); ctx.fill();
     }
-    if (B.tint) { ctx.fillStyle = B.tint; ctx.fillRect(0, 0, VIEW_W, VIEW_H); }
-    if (bg.night) { ctx.fillStyle = 'rgba(10,10,40,.22)'; ctx.fillRect(0, 0, VIEW_W, VIEW_H); }
+    // one combined full-screen grade instead of two separate fills
+    if (B.tint || bg.night) { ctx.fillStyle = bg.night && B.tint ? 'rgba(20,6,50,.3)' : bg.night ? 'rgba(10,10,40,.22)' : B.tint; ctx.fillRect(0, 0, VIEW_W, VIEW_H); }
     if (B.heat) {
       ctx.globalAlpha = 0.06; ctx.fillStyle = '#fff';
       for (let y = 180; y < 330; y += 8) ctx.fillRect(Math.sin(T * 3 + y) * 6, y, VIEW_W, 2);

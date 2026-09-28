@@ -92,6 +92,14 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 @keyframes blink { 50% { opacity: 0; } }
 .title-menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: min(100%, 460px); }
 .title-menu .btn:first-child { grid-column: 1 / -1; font-size: 24px; min-height: 60px; }
+.title-menu.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.title-menu .btn.revealed { background: linear-gradient(#78f5c6, var(--mint)); color: #002a1a; animation: reveal .7s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes reveal { from { transform: scale(0) rotate(-12deg); opacity: 0; } }
+@media (max-width: 420px) { .title-menu.three { grid-template-columns: repeat(2, minmax(0, 1fr)); } .title-menu.three .btn:last-child { grid-column: 1 / -1; } }
+/* the secret cloud: tap it five times */
+#secretCloud { position: absolute; top: max(8px, env(safe-area-inset-top, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); width: 120px; height: 90px; padding: 0; border: 0; background: none; z-index: 3; touch-action: manipulation; }
+#secretCloud canvas { width: 120px; height: 90px; display: block; }
+#cloudSay { position: absolute; right: 100%; top: 18px; margin-right: 4px; white-space: nowrap; font-family: var(--f-body); font-weight: 600; font-size: 14px; color: #2a1f5c; background: #fff4e2; border: 2px solid #1b1030; border-radius: 12px; padding: 4px 10px; animation: cardIn .3s cubic-bezier(.2, 1.4, .4, 1) both; }
 .title-foot { font-family: var(--f-pixel); font-size: 10px; color: var(--muted); letter-spacing: .08em; text-align: center; }
 
 /* ---------- top bar (map etc.) ---------- */
@@ -237,6 +245,16 @@ textarea { width: 100%; resize: vertical; min-height: 70px; font-size: 12px; box
 #touch .zone-l { position: absolute; left: 0; bottom: 0; width: 45%; height: 70%; pointer-events: auto; }
 #stick { position: absolute; width: 124px; height: 124px; margin: -62px 0 0 -62px; border-radius: 50%; background: rgba(255,255,255,.08); border: 3px solid rgba(255,255,255,.25); pointer-events: none; }
 #stickKnob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #c9c3de); box-shadow: 0 3px 0 rgba(0,0,0,.4); }
+#stickGhost { position: absolute; left: max(28px, env(safe-area-inset-left, 0px)); bottom: max(34px, env(safe-area-inset-bottom, 0px)); width: 124px; height: 124px; border-radius: 50%; border: 3px dashed rgba(255,255,255,.22); display: grid; place-items: center; pointer-events: none; transition: opacity .2s; }
+#stickGhost span { font-family: var(--f-pixel); font-size: 11px; letter-spacing: .15em; color: rgba(255,255,255,.35); }
+#stickGhost.off { opacity: 0; }
+.console-deco { display: none; }
+body.portrait #touch { background: linear-gradient(180deg, #2c2366 0, #221a52 40%, #1b1542); border-top: 4px solid #3b2f7d; border-radius: 0 0 26px 26px; }
+body.portrait .console-deco { display: flex; position: absolute; left: 16px; right: 16px; top: 12px; align-items: center; gap: 10px; pointer-events: none; }
+body.portrait .console-deco .led { width: 10px; height: 10px; border-radius: 50%; background: #ff4f73; box-shadow: 0 0 10px #ff4f73; animation: blink 2.4s steps(2) infinite; }
+body.portrait .console-deco .brand { font-family: var(--f-display); font-size: 13px; letter-spacing: .08em; color: #8f84c8; }
+body.portrait .console-deco .brand i { font-family: var(--f-pixel); font-style: normal; font-size: 10px; color: var(--gold); }
+body.portrait .console-deco .grille { margin-left: auto; width: 60px; height: 26px; background: repeating-linear-gradient(115deg, transparent 0 6px, rgba(0,0,0,.35) 6px 10px); border-radius: 6px; }
 #touch .pad-r { position: absolute; right: max(10px, env(safe-area-inset-right, 0px)); bottom: max(10px, env(safe-area-inset-bottom, 0px)); width: 230px; height: 210px; pointer-events: none; }
 .tbtn {
   position: absolute; pointer-events: auto; border-radius: 50%; border: 3px solid rgba(255,255,255,.35);

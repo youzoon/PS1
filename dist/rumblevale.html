@@ -97,6 +97,14 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 @keyframes blink { 50% { opacity: 0; } }
 .title-menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: min(100%, 460px); }
 .title-menu .btn:first-child { grid-column: 1 / -1; font-size: 24px; min-height: 60px; }
+.title-menu.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.title-menu .btn.revealed { background: linear-gradient(#78f5c6, var(--mint)); color: #002a1a; animation: reveal .7s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes reveal { from { transform: scale(0) rotate(-12deg); opacity: 0; } }
+@media (max-width: 420px) { .title-menu.three { grid-template-columns: repeat(2, minmax(0, 1fr)); } .title-menu.three .btn:last-child { grid-column: 1 / -1; } }
+/* the secret cloud: tap it five times */
+#secretCloud { position: absolute; top: max(8px, env(safe-area-inset-top, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); width: 120px; height: 90px; padding: 0; border: 0; background: none; z-index: 3; touch-action: manipulation; }
+#secretCloud canvas { width: 120px; height: 90px; display: block; }
+#cloudSay { position: absolute; right: 100%; top: 18px; margin-right: 4px; white-space: nowrap; font-family: var(--f-body); font-weight: 600; font-size: 14px; color: #2a1f5c; background: #fff4e2; border: 2px solid #1b1030; border-radius: 12px; padding: 4px 10px; animation: cardIn .3s cubic-bezier(.2, 1.4, .4, 1) both; }
 .title-foot { font-family: var(--f-pixel); font-size: 10px; color: var(--muted); letter-spacing: .08em; text-align: center; }
 
 /* ---------- top bar (map etc.) ---------- */
@@ -242,6 +250,16 @@ textarea { width: 100%; resize: vertical; min-height: 70px; font-size: 12px; box
 #touch .zone-l { position: absolute; left: 0; bottom: 0; width: 45%; height: 70%; pointer-events: auto; }
 #stick { position: absolute; width: 124px; height: 124px; margin: -62px 0 0 -62px; border-radius: 50%; background: rgba(255,255,255,.08); border: 3px solid rgba(255,255,255,.25); pointer-events: none; }
 #stickKnob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #c9c3de); box-shadow: 0 3px 0 rgba(0,0,0,.4); }
+#stickGhost { position: absolute; left: max(28px, env(safe-area-inset-left, 0px)); bottom: max(34px, env(safe-area-inset-bottom, 0px)); width: 124px; height: 124px; border-radius: 50%; border: 3px dashed rgba(255,255,255,.22); display: grid; place-items: center; pointer-events: none; transition: opacity .2s; }
+#stickGhost span { font-family: var(--f-pixel); font-size: 11px; letter-spacing: .15em; color: rgba(255,255,255,.35); }
+#stickGhost.off { opacity: 0; }
+.console-deco { display: none; }
+body.portrait #touch { background: linear-gradient(180deg, #2c2366 0, #221a52 40%, #1b1542); border-top: 4px solid #3b2f7d; border-radius: 0 0 26px 26px; }
+body.portrait .console-deco { display: flex; position: absolute; left: 16px; right: 16px; top: 12px; align-items: center; gap: 10px; pointer-events: none; }
+body.portrait .console-deco .led { width: 10px; height: 10px; border-radius: 50%; background: #ff4f73; box-shadow: 0 0 10px #ff4f73; animation: blink 2.4s steps(2) infinite; }
+body.portrait .console-deco .brand { font-family: var(--f-display); font-size: 13px; letter-spacing: .08em; color: #8f84c8; }
+body.portrait .console-deco .brand i { font-family: var(--f-pixel); font-style: normal; font-size: 10px; color: var(--gold); }
+body.portrait .console-deco .grille { margin-left: auto; width: 60px; height: 26px; background: repeating-linear-gradient(115deg, transparent 0 6px, rgba(0,0,0,.35) 6px 10px); border-radius: 6px; }
 #touch .pad-r { position: absolute; right: max(10px, env(safe-area-inset-right, 0px)); bottom: max(10px, env(safe-area-inset-bottom, 0px)); width: 230px; height: 210px; pointer-events: none; }
 .tbtn {
   position: absolute; pointer-events: auto; border-radius: 50%; border: 3px solid rgba(255,255,255,.35);
@@ -304,7 +322,8 @@ kbd { font-family: var(--f-pixel); font-size: 11px; background: #0d0a1e; border:
   <div id="stageWrap"><canvas id="game" aria-label="Rumblevale game view"></canvas></div>
 
   <div id="touch" hidden>
-    <div class="zone-l" id="stickZone"><div id="stick" hidden><div id="stickKnob"></div></div></div>
+    <div class="console-deco" aria-hidden="true"><span class="led"></span><span class="brand">RUMBLEVALE <i>POCKET</i></span><span class="grille"></span></div>
+    <div class="zone-l" id="stickZone"><div id="stickGhost" aria-hidden="true"><span>MOVE</span></div><div id="stick" hidden><div id="stickKnob"></div></div></div>
     <div class="pad-r">
       <button class="tbtn a" data-b="atk" aria-label="Attack">A</button>
       <button class="tbtn j" data-b="jump" aria-label="Jump">J</button>
@@ -318,12 +337,13 @@ kbd { font-family: var(--f-pixel); font-size: 11px; background: #0d0a1e; border:
   <button id="pauseBtn" hidden aria-label="Pause">II</button>
 
   <section class="screen" id="scrTitle" hidden>
+    <button id="secretCloud" aria-label="A suspicious cloud"><canvas id="cloudCv" width="240" height="180"></canvas><span id="cloudSay" hidden></span></button>
     <div class="center-col">
       <div class="logo"><span class="l1">RUMBLEVALE</span><span class="l2">A ROGUELITE BRAWLER</span></div>
       <div class="press-start" id="pressStart">PRESS START</div>
       <div class="title-menu" id="titleMenu">
         <button class="btn gold" id="bPlay">Adventure</button>
-        <button class="btn" id="bTyping">Keyboard Warrior</button>
+        <button class="btn" id="bTyping" hidden>Keyboard Warrior</button>
         <button class="btn" id="bSkills">Skill Tree</button>
         <button class="btn" id="bTrophies">Trophies</button>
         <button class="btn" id="bSettings">Settings</button>
@@ -858,6 +878,7 @@ const Input = (() => {
       stick.ox = e.clientX - r.left; stick.oy = e.clientY - r.top;
       stick.x = 0; stick.y = 0; stick.mag = 0;
       stickEl.hidden = false;
+      $('stickGhost').classList.add('off');
       stickEl.style.left = stick.ox + 'px'; stickEl.style.top = stick.oy + 'px';
       knob.style.transform = 'translate(0,0)';
       try { zone.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
@@ -884,6 +905,7 @@ const Input = (() => {
       if (e.pointerId !== stick.id) return;
       stick.active = false; stick.id = null; stick.x = stick.y = stick.mag = 0;
       stickEl.hidden = true;
+      $('stickGhost').classList.remove('off');
     };
     zone.addEventListener('pointerup', end);
     zone.addEventListener('pointercancel', end);
@@ -951,7 +973,7 @@ const EL = {
 };
 const canvas = $('game');
 const ctx = canvas.getContext('2d');
-const View = { scale: 1, cssW: 0, cssH: 0, left: 0, top: 0, dpr: 1, portrait: false, hud: 1 };
+const View = { scale: 1, cssW: 0, cssH: 0, left: 0, top: 0, dpr: 1, portrait: false, hud: 1, qualityCap: 2 };
 
 function resize() {
   const W = window.innerWidth, Hh = window.innerHeight;
@@ -974,7 +996,7 @@ function resize() {
   }
   View.cssW = gw; View.cssH = gh; View.left = left; View.top = top;
   const mobile = Math.min(W, Hh) < 600;
-  View.dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.75 : 2);
+  View.dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.75 : 2, View.qualityCap);
   canvas.style.width = gw + 'px'; canvas.style.height = gh + 'px';
   canvas.style.left = left + 'px'; canvas.style.top = top + 'px';
   canvas.width = Math.round(gw * View.dpr); canvas.height = Math.round(gh * View.dpr);
@@ -2605,6 +2627,7 @@ const ACH = [
   { id: 'overdrive', name: 'Limit Break', desc: 'Trigger Overdrive.' },
   { id: 'kills1000', name: 'Rumble Veteran', desc: 'Defeat 1,000 enemies.' },
   { id: 'ufo', name: 'The Truth Is Out There', desc: 'Find the crashed UFO on the map.' },
+  { id: 'cloud', name: 'Head in the Clouds', desc: 'Find the secret hiding on the title screen.' },
   { id: 'gauntlet', name: 'Ran the Gauntlet', desc: 'Survive all five battles of The Gauntlet.' },
   { id: 'shopper', name: 'Valued Customer', desc: 'Buy something from Pip the Peddler.' },
   { id: 'lootgob', name: 'Gotcha!', desc: 'Catch a Loot Goblin before it escapes.' },
@@ -3585,8 +3608,8 @@ function createBackground(biomeId, levelSeed, night) {
       for (let k = 0; k < 8; k++) ctx.lineTo(x - 50 + k * 14, base - 18 - ((k * 37 + i * 11) % 16) - Math.sin(T * 2 + k + i) * 2);
       ctx.lineTo(x + 70, base); ctx.fill();
     }
-    if (B.tint) { ctx.fillStyle = B.tint; ctx.fillRect(0, 0, VIEW_W, VIEW_H); }
-    if (bg.night) { ctx.fillStyle = 'rgba(10,10,40,.22)'; ctx.fillRect(0, 0, VIEW_W, VIEW_H); }
+    // one combined full-screen grade instead of two separate fills
+    if (B.tint || bg.night) { ctx.fillStyle = bg.night && B.tint ? 'rgba(20,6,50,.3)' : bg.night ? 'rgba(10,10,40,.22)' : B.tint; ctx.fillRect(0, 0, VIEW_W, VIEW_H); }
     if (B.heat) {
       ctx.globalAlpha = 0.06; ctx.fillStyle = '#fff';
       for (let y = 180; y < 330; y += 8) ctx.fillRect(Math.sin(T * 3 + y) * 6, y, VIEW_W, 2);
@@ -6580,7 +6603,8 @@ const UI = {
     Game.startDemo();
     this.show('scrTitle');
     Sfx.playMusic('title');
-    $('bTyping').disabled = false;
+    syncTitleMenu(false);
+    Cloud.start();
   },
 
   // ---------------- hero select ----------------
@@ -6815,7 +6839,7 @@ const UI = {
             if (SAVE.quarters < cost) { Sfx.play('back'); toast('Not enough quarters', `Need ${fmt(cost)}¢`, '¢'); return; }
             SAVE.quarters -= cost; SAVE.skills[s.id] = r + 1; persist();
             Sfx.play('levelup');
-            if (SKILLS.reduce((a, q) => a + skillRank(q.id), 0) >= 10) unlockAch('skill10');
+            if (SKILLS.reduce((a, q) => a + skillRank(q.id), 0) >= 10) unlockAch('skill10', true);
             render();
           } },
           iconCanvas(s.icon, br.color, 40),
@@ -6934,14 +6958,122 @@ function toast(t1, t2, ico = '★', cls = '') {
   box.append(el);
   setTimeout(() => el.remove(), 4200);
 }
-function unlockAch(id) {
-  if (SAVE.ach[id] || (S && S.mode === 'demo')) return;
+// force = unlocked from menus/secrets, so it counts even while the title demo fight runs
+function unlockAch(id, force) {
+  if (SAVE.ach[id] || (S && S.mode === 'demo' && !force)) return;
   const a = ACH.find((x) => x.id === id);
   if (!a) return;
   SAVE.ach[id] = Date.now();
   persist();
   toast('Achievement unlocked · 50G', a.name, '🏆');
   Sfx.play('coin');
+}
+
+// ---------------- the secret cloud on the title screen ----------------
+// Tap it five times to reveal the Keyboard Warrior special mode.
+const CLOUD_LINES = ['Hehe!', 'That tickles!', 'Stop it!', 'Okay, okay…', 'Fine! A secret for you!'];
+const CLOUD_GIGGLES = ['Hihi!', 'Boop!', 'Again?', 'Wheee!', 'Type faster!'];
+const Cloud = {
+  taps: 0, t: 0, squish: 0, raf: 0, sayT: 0, sparks: [],
+  init() {
+    $('secretCloud').addEventListener('click', () => this.tap());
+  },
+  start() {
+    cancelAnimationFrame(this.raf);
+    let last = performance.now();
+    const loop = (now) => {
+      if (UI.current !== 'scrTitle') return;
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      this.t += dt; this.squish = Math.max(0, this.squish - dt * 4);
+      if (this.sayT > 0) { this.sayT -= dt; if (this.sayT <= 0) $('cloudSay').hidden = true; }
+      this.draw(dt);
+      this.raf = requestAnimationFrame(loop);
+    };
+    this.raf = requestAnimationFrame(loop);
+  },
+  say(text) { const el = $('cloudSay'); el.textContent = text; el.hidden = false; el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; this.sayT = 1.6; },
+  tap() {
+    Sfx.init();
+    this.squish = 1;
+    for (let i = 0; i < 8; i++) this.sparks.push({ x: 60 + R(-30, 30), y: 50 + R(-10, 10), vx: R(-60, 60), vy: R(-90, -20), t: 0.7, c: pick(['#ffc53d', '#55c8ff', '#ff9fd0']) });
+    if (SAVE.secrets.typing) { Sfx.play('gem'); this.say(pick(CLOUD_GIGGLES)); return; }
+    this.taps++;
+    Sfx.play(this.taps < 5 ? 'gem' : 'cheat');
+    this.say(CLOUD_LINES[Math.min(this.taps, 5) - 1]);
+    if (this.taps >= 5) {
+      SAVE.secrets.typing = true; persist();
+      for (let i = 0; i < 30; i++) this.sparks.push({ x: 60, y: 46, vx: R(-140, 140), vy: R(-160, 60), t: 1.1, c: pick(['#ffc53d', '#3ee6a8', '#ff4f73', '#55c8ff']) });
+      Sfx.play('levelup');
+      syncTitleMenu(true);
+      toast('Secret mode unlocked', 'Keyboard Warrior is now in the menu', '⌨');
+      unlockAch('cloud', true);
+    }
+  },
+  draw(dt) {
+    const cv = $('cloudCv'), g = cv.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+    g.setTransform(2, 0, 0, 2, 0, 0);
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    const T = this.t, sq = this.squish;
+    const bob = Math.sin(T * 2) * 3;
+    const unlocked = !!SAVE.secrets.typing;
+    const mood = unlocked ? 'star' : ['idle', 'happy', 'shock', 'grump', 'dizzy', 'star'][Math.min(this.taps, 5)];
+    g.save();
+    g.translate(60, 48 + bob);
+    g.scale(1 + sq * 0.18, 1 - sq * 0.16);
+    g.rotate(Math.sin(T * 1.3) * 0.04 + (mood === 'dizzy' ? Math.sin(T * 9) * 0.08 : 0));
+    const puffs = [[-32, 6, 17], [-14, -8, 22], [10, -12, 25], [32, 2, 18], [0, 8, 24], [-24, 12, 14], [22, 12, 15]];
+    // outline pass then fill pass gives one merged silhouette
+    g.fillStyle = OUTLINE;
+    for (const [x, y, r] of puffs) { g.beginPath(); g.arc(x, y, r + 3, 0, TAU); g.fill(); }
+    g.fillStyle = '#ffffff';
+    for (const [x, y, r] of puffs) { g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); }
+    g.save();
+    g.beginPath(); for (const [x, y, r] of puffs) { g.moveTo(x + r, y); g.arc(x, y, r, 0, TAU); } g.clip();
+    g.fillStyle = '#d6e8ff'; g.beginPath(); g.ellipse(0, 26, 52, 16, 0, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.ellipse(-8, -24, 14, 6, -0.3, 0, TAU); g.fill();
+    g.restore();
+    // face
+    const blink = (T % 3.2) < 0.12 && mood === 'idle';
+    g.strokeStyle = OUTLINE; g.fillStyle = OUTLINE; g.lineWidth = 2.6;
+    const eye = (x) => {
+      const y = 2;
+      if (mood === 'happy') { g.beginPath(); g.arc(x, y + 2, 4.5, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
+      else if (mood === 'shock') { g.fillStyle = '#fff'; g.beginPath(); g.arc(x, y, 6, 0, TAU); g.fill(); g.stroke(); g.fillStyle = OUTLINE; g.beginPath(); g.arc(x, y, 2.2, 0, TAU); g.fill(); }
+      else if (mood === 'grump') { g.beginPath(); g.moveTo(x - 5, y - 1); g.lineTo(x + 5, y + 1); g.stroke(); g.beginPath(); g.arc(x, y + 3, 2.2, 0, TAU); g.fill(); }
+      else if (mood === 'dizzy') { g.beginPath(); for (let a = 0; a < TAU * 1.6; a += 0.35) { const r = a * 0.9; g.lineTo(x + Math.cos(a + T * 8) * r, y + Math.sin(a + T * 8) * r); } g.stroke(); }
+      else if (mood === 'star') { g.fillStyle = '#ffc53d'; starPath(g, x, y, 6.5, 2.8, 5); g.fill(); g.stroke(); g.fillStyle = OUTLINE; }
+      else if (blink) { g.beginPath(); g.moveTo(x - 4, y); g.lineTo(x + 4, y); g.stroke(); }
+      else { g.beginPath(); g.ellipse(x, y, 3.2, 4.2, 0, 0, TAU); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(x + 1, y - 1.5, 1.2, 0, TAU); g.fill(); g.fillStyle = OUTLINE; }
+    };
+    eye(-11); eye(11);
+    // cheeks
+    g.fillStyle = 'rgba(255,110,150,.55)'; g.beginPath(); g.ellipse(-20, 10, 5, 3, 0, 0, TAU); g.ellipse(20, 10, 5, 3, 0, 0, TAU); g.fill();
+    // mouth
+    g.strokeStyle = OUTLINE; g.fillStyle = '#5a1030'; g.lineWidth = 2.4;
+    if (mood === 'shock') { g.beginPath(); g.ellipse(0, 14, 4, 5, 0, 0, TAU); g.fill(); g.stroke(); }
+    else if (mood === 'grump') { g.beginPath(); g.arc(0, 17, 4, Math.PI * 1.15, Math.PI * 1.85); g.stroke(); }
+    else if (mood === 'dizzy') { g.beginPath(); for (let i = 0; i <= 6; i++) g.lineTo(-6 + i * 2, 13 + (i % 2 ? 2 : -1)); g.stroke(); }
+    else if (mood === 'happy' || mood === 'star') { g.beginPath(); g.arc(0, 10, 6, 0.15, Math.PI - 0.15); g.closePath(); g.fill(); g.stroke(); g.fillStyle = '#ff9fb8'; g.beginPath(); g.ellipse(0, 14, 3, 1.6, 0, 0, TAU); g.fill(); }
+    else { g.beginPath(); g.arc(0, 9, 4, 0.3, Math.PI - 0.3); g.stroke(); }
+    g.restore();
+    // a hint of a secret: a tiny sparkle now and then (only before unlocking)
+    if (!unlocked && Math.random() < dt * 0.8) this.sparks.push({ x: 60 + R(-40, 40), y: 30 + R(-10, 20), vx: 0, vy: -10, t: 0.8, c: '#fff4c2' });
+    for (let i = this.sparks.length - 1; i >= 0; i--) {
+      const p = this.sparks[i];
+      p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 120 * dt;
+      if (p.t <= 0) { this.sparks.splice(i, 1); continue; }
+      g.globalAlpha = Math.min(1, p.t * 2); g.fillStyle = p.c; starPath(g, p.x, p.y, 3.5, 1.5, 4); g.fill();
+    }
+    g.globalAlpha = 1;
+  },
+};
+function syncTitleMenu(reveal) {
+  const on = !!SAVE.secrets.typing;
+  const b = $('bTyping');
+  b.hidden = !on;
+  b.classList.toggle('revealed', !!reveal);
+  $('titleMenu').classList.toggle('three', !on);
 }
 
 // ---- 12_map.js ----
@@ -7022,6 +7154,7 @@ const WorldMap = {
     for (const l of LEVELS) out.push({ id: l.id, x: l.x, y: l.y, lvl: l, avail: levelAvailable(l.id), cleared: !!SAVE.cleared[l.id], stars: SAVE.stars[l.id] || 0 });
     for (const s of SIDE) {
       if (s.secret && !SAVE.secrets.cow) continue;
+      if (s.kind === 'typing' && !SAVE.secrets.typing) continue;
       out.push({ id: s.id, x: s.x, y: s.y, side: s, avail: !s.req || !!SAVE.cleared[s.req] });
     }
     return out;
@@ -7065,11 +7198,11 @@ const WorldMap = {
     // secrets first
     if (Math.hypot(mx - 175, my - 1045) < 30) {
       this.cowClicks++; Sfx.play('moo');
-      if (this.cowClicks >= 10 && !SAVE.secrets.cow) { SAVE.secrets.cow = true; persist(); unlockAch('cow'); toast('Moo.', 'A secret location has appeared…', '🐄'); this.render(); }
+      if (this.cowClicks >= 10 && !SAVE.secrets.cow) { SAVE.secrets.cow = true; persist(); unlockAch('cow', true); toast('Moo.', 'A secret location has appeared…', '🐄'); this.render(); }
       else if (!SAVE.secrets.cow) toast('Moo?', `${10 - this.cowClicks} more…`, '🐄');
       return;
     }
-    if (Math.hypot(mx - 1010, my - 180) < 40) { unlockAch('ufo'); toast('The truth is out there', 'A crashed saucer. Someone left a floppy inside.', '🛸'); Sfx.play('dialup'); return; }
+    if (Math.hypot(mx - 1010, my - 180) < 40) { unlockAch('ufo', true); toast('The truth is out there', 'A crashed saucer. Someone left a floppy inside.', '🛸'); Sfx.play('dialup'); return; }
     let best = null, bd = 44 / Math.min(1, this.cam.z);
     for (const n of this.nodes()) { const d = Math.hypot(n.x - mx, n.y - my); if (d < bd) { bd = d; best = n; } }
     if (best) { Sfx.play('select'); this.select(best.id, true); }
@@ -7908,7 +8041,7 @@ const Game = {
     if (!CHEATS[code]) return false;
     Sfx.play('cheat');
     const inRun = S && S.mode !== 'demo' && Game.state === 'play';
-    const markCheat = () => { SAVE.stats.cheats++; unlockAch('cheat'); if (inRun) S.cheated = true; this.cheatedRun = true; };
+    const markCheat = () => { SAVE.stats.cheats++; unlockAch('cheat', true); if (inRun) S.cheated = true; this.cheatedRun = true; };
     let msg = CHEATS[code];
     switch (code) {
       case 'IDDQD': this.cheats.god = !this.cheats.god; if (S) S.god = this.cheats.god; msg += this.cheats.god ? ' ON' : ' OFF'; markCheat(); break;
@@ -7916,11 +8049,11 @@ const Game = {
         this.cheats.idkfa = true; markCheat();
         if (inRun) { const hh = S.hero; for (const id of shuffle(BASE_SPELLS.slice())) { if (hh.spells.length >= 3) break; if (!hh.spells.find((s) => s.id === id)) hh.spells.push({ id, lvl: 5, cd: 0 }); } for (const s of hh.spells) { if (s.lvl < 5) s.lvl = 5; hh.cards[s.id] = s.lvl; } this.syncTouch(); }
         break;
-      case 'THEREISNOCOWLEVEL': SAVE.secrets.cow = true; unlockAch('cow'); if (WorldMap.img) WorldMap.render(); msg = 'There is no cow level. (Check the map.)'; break;
+      case 'THEREISNOCOWLEVEL': SAVE.secrets.cow = true; unlockAch('cow', true); if (WorldMap.img) WorldMap.render(); msg = 'There is no cow level. (Check the map.)'; break;
       case 'ROSEBUD': SAVE.quarters += 1000; SAVE.lifetimeQuarters += 1000; markCheat(); break;
       case 'HESOYAM': if (inRun) { S.hero.hp = S.hero.maxHp; S.hero.mp = S.hero.maxMp; S.quarters += 250; } else SAVE.quarters += 250; markCheat(); break;
       case 'BIGHEAD': BIGHEAD = !BIGHEAD; msg += BIGHEAD ? ' ON' : ' OFF'; break;
-      case 'XYZZY': unlockAch('xyzzy'); msg = 'Nothing happens.'; break;
+      case 'XYZZY': unlockAch('xyzzy', true); msg = 'Nothing happens.'; break;
       case 'NOCLIP': this.cheats.noclip = !this.cheats.noclip; if (S) S.noclip = this.cheats.noclip; msg += this.cheats.noclip ? ' ON' : ' OFF'; markCheat(); break;
       case 'ALLYOURBASE': this.cheats.unlockAll = true; msg = 'ARE BELONG TO US. All levels unlocked (this session).'; markCheat(); if (WorldMap.open_) WorldMap.select(WorldMap.sel, false); break;
       case 'KLAPAUCIUS': if (inRun) for (let i = 0; i < 40; i++) S.addPickup(new Pickup({ kind: 'xp', value: 4, x: S.hero.x + R(-200, 200), z: R(0, DEPTH), y: 200 })); markCheat(); break;
@@ -7989,7 +8122,18 @@ function frame(now) {
       S.update(dt);
       if (S && S.mode === 'typing') Typing.update(dt);
     }
-    if (Game.state === 'play') SAVE.stats.playTime += dt;
+    if (Game.state === 'play') {
+      SAVE.stats.playTime += dt;
+      // adaptive resolution: if we can't hold ~45 fps for a few seconds, render at a lower pixel ratio
+      const P = Game.perf || (Game.perf = { t: 0, n: 0, slow: 0 });
+      P.t += dt; P.n++;
+      if (P.t >= 3) {
+        const avg = P.t / P.n;
+        P.slow = avg > 0.022 && !S.paused ? P.slow + 1 : 0;
+        P.t = 0; P.n = 0;
+        if (P.slow >= 1 && View.dpr > 1) { View.qualityCap = Math.max(1, View.dpr - 0.35); resize(); if (S && S.bg) S.bg.build(); }
+      }
+    }
     const showGame = Game.stage && S && UI.current !== 'scrMap' && UI.current !== 'scrHeroes' && UI.current !== 'scrSkills' && UI.current !== 'scrTrophies' && UI.current !== 'scrSettings' && UI.current !== 'scrTypingMenu';
     if (showGame) {
       ctx.setTransform(View.scale, 0, 0, View.scale, 0, 0);
@@ -8039,10 +8183,11 @@ function boot() {
   $('mapTrophies').onclick = () => { Sfx.play('select'); UI.trophies(() => Game.toMap()); };
   $('mapSettings').onclick = () => { Sfx.play('select'); UI.settings(() => Game.toMap()); };
   $('pauseBtn').onclick = () => UI.pause();
+  Cloud.init();
   Input.on('konami', () => {
     if (!SAVE.heroes.glitch) { SAVE.heroes.glitch = true; persist(); toast('+30 LIVES', 'Just kidding. Secret hero GL!TCH unlocked!', '↑'); }
     else toast('+30 LIVES', 'You already know the code.', '↑');
-    unlockAch('konami'); Sfx.play('cheat');
+    unlockAch('konami', true); Sfx.play('cheat');
   });
   Input.on('cheat', (buf) => { for (const code in CHEATS) if (buf.endsWith(code)) { Game.tryCheat(code); Input.resetCheat(); break; } });
   // results screen remembers itself so the skill tree can return to it
@@ -8058,6 +8203,7 @@ function boot() {
   requestAnimationFrame(frame);
   // debugging / automated test hooks
   window.__rv = { Game, UI, SAVE: () => SAVE, S: () => S, LEVELS, Input, WorldMap, Typing, setSave: (s) => { SAVE = mergeSave(defaultSave(), s); } };
+  window.__dbg = { drawHUD, Particles, drawFighter, drawProp };
   // dev helper: a pose sheet of every hero and enemy (used by tools/ for visual checks)
   window.__drawSheet = (g) => {
     const poses = [['idle', 0.2], ['walk', 0.3], ['run', 0.3], ['jump', 0.1], ['attack:jab', 0.1], ['attack:upper', 0.14], ['attack:swing', 0.16], ['attack:slam', 0.3], ['attack:thrust', 0.08], ['block', 0.1], ['cast', 0.2], ['hurt', 0.1], ['down', 0.1], ['win', 0.2]];

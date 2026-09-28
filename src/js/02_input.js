@@ -100,6 +100,7 @@ const Input = (() => {
       stick.ox = e.clientX - r.left; stick.oy = e.clientY - r.top;
       stick.x = 0; stick.y = 0; stick.mag = 0;
       stickEl.hidden = false;
+      $('stickGhost').classList.add('off');
       stickEl.style.left = stick.ox + 'px'; stickEl.style.top = stick.oy + 'px';
       knob.style.transform = 'translate(0,0)';
       try { zone.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
@@ -126,6 +127,7 @@ const Input = (() => {
       if (e.pointerId !== stick.id) return;
       stick.active = false; stick.id = null; stick.x = stick.y = stick.mag = 0;
       stickEl.hidden = true;
+      $('stickGhost').classList.remove('off');
     };
     zone.addEventListener('pointerup', end);
     zone.addEventListener('pointercancel', end);
