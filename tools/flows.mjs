@@ -61,7 +61,8 @@ if (nextBtn) { await nextBtn.click(); await page.waitForTimeout(300); check('her
 // 3) pause / restart / quit
 await page.click('#heroesBody .btn.gold');
 await page.waitForTimeout(3000);
-await page.evaluate(() => { const S = window.__rv.S(); if (S.inDraft) { S.pendingLevels = 0; } });
+// level 2 opens with a warm-up draft: pick cards until it closes
+for (let i = 0; i < 4 && (await page.isVisible('#scrDraft')); i++) { await page.keyboard.press('Digit1'); await page.waitForTimeout(400); }
 await page.keyboard.press('Escape');
 await page.waitForTimeout(200);
 check('pause visible', await page.isVisible('#scrPause'));
