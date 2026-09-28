@@ -47,7 +47,7 @@ class Stage {
     this.maxEngaged = 2 + Math.floor(L / 4);
     // warm-up kit: later levels start with free upgrade picks so the build fits the difficulty
     if (this.mode === 'level' && !o.noKit) {
-      const kit = Math.floor((L - 1) / 2);
+      const kit = Math.floor(L / 2);
       this.pendingLevels = kit; this.hero.level += kit; this.hero.xpNext = xpForLevel(this.hero.level);
       this.warmup = this.bot ? 0 : kit;
     }
@@ -59,10 +59,11 @@ class Stage {
   }
   setDifficulty(L) {
     this.diff = L;
-    this.hpMul = 1 + 0.26 * (L - 1);
-    this.dmgMul = 1 + 0.1 * (L - 1);
+    this.hpMul = 1 + 0.24 * (L - 1);
+    this.dmgMul = 1 + 0.085 * (L - 1);
     this.spdMul = 1 + 0.025 * (L - 1);
     this.aggr = 1 + 0.045 * (L - 1);
+    if (SAVE.settings.assist) { this.hpMul *= 0.8; this.dmgMul *= 0.6; this.aggr *= 0.85; }
     this.eliteChance = L >= 3 ? 0.03 + L * 0.008 : 0;
   }
   bounds(f) {
@@ -112,6 +113,15 @@ class Stage {
     const r = makeRng(hashStr(this.level.id) + i * 31);
     const np = 2 + r.int(0, 2);
     for (let k = 0; k < np; k++) this.props.push(new Prop({ kind: r.pick(['barrel', 'crate', 'barrel', 'rock']), x: start + r.range(200, SEC_W - 150), z: r.range(20, DEPTH - 20), hp: 24 }));
+    // one golden floppy hides in a breakable somewhere in each world level
+    if (LEVEL_BY_ID[this.level.id] && !SAVE.floppies[this.level.id] && hashStr(this.level.id) % Math.max(1, this.sections - 1) === i) {
+      this.props.push(new Prop({ kind: 'crate', x: start + r.range(260, SEC_W - 200), z: r.pick([12, DEPTH - 12]), hp: 30, floppy: true }));
+    }
+    // rare event: a Loot Goblin sprints through with a sack of quarters
+    if (!this.gobSeen && !last && this.mode === 'level' && Math.random() < 0.22) {
+      this.gobSeen = true;
+      this.spawnQ.push({ t: R(4, 9), fn: () => { this.spawnEnemy('lootgob', { edge: true }); this.banner('LOOT GOBLIN!', '#ffc53d', 1.4); Sfx.play('coin'); } });
+    }
     this.waveIdx = 0;
     this.waveCooldown = i === 0 ? 1.4 : 0.6;
   }
@@ -148,7 +158,8 @@ class Stage {
       // some enemies make a dramatic entrance inside the arena
       if (!o.edge && (kind === 'skeleton' || kind === 'mummy') && Math.random() < 0.5) { e.x = R(this.arena[0] + 100, this.arena[1] - 100); e.entering = false; e.setState('spawn'); dust(e.x, e.z, 10); }
       if (!o.edge && kind === 'slime' && Math.random() < 0.5) { e.x = R(this.arena[0] + 100, this.arena[1] - 100); e.entering = false; e.y = 400; e.setState('air'); e.vy = 0; }
-      if (elite) this.makeElite(e);
+      if (elite && kind !== 'lootgob') this.makeElite(e);
+      if (kind === 'lootgob') { e.maxHp = e.hp = def.hp * (1 + 0.12 * (this.diff - 1)); }
       this.enemies.push(e);
       this.heroes.length; // noop
     };
@@ -194,7 +205,7 @@ class Stage {
       return;
     }
     if (this.over || this.bossIntro) return;
-    const alive = this.enemies.filter((e) => !e.dead).length;
+    const alive = this.enemies.filter((e) => !e.dead && e.kind !== 'lootgob').length;
     if (this.waveIdx < this.waves.length) {
       this.waveCooldown -= dt;
       const cur = this.waves[this.waveIdx];
@@ -247,6 +258,11 @@ class Stage {
     for (let i = 0; i < nq; i++) this.addPickup(new Pickup({ kind: 'coin', value: 1 + Math.floor(this.diff / 4), x: e.x, z: e.z }));
     if (Math.random() < 0.05) this.addPickup(new Pickup({ kind: Math.random() < 0.5 ? 'milk' : 'food', x: e.x, z: e.z }));
     if (e.isElite && !e.isBoss) this.addPickup(new Pickup({ kind: 'chest', x: e.x, z: e.z }));
+    if (e.kind === 'lootgob') {
+      for (let i = 0; i < 18; i++) this.addPickup(new Pickup({ kind: 'coin', value: 2 + Math.floor(this.diff / 2), x: e.x, z: e.z, vy: R(200, 420), vx: R(-160, 160) }));
+      this.addPickup(new Pickup({ kind: 'chest', x: e.x, z: e.z }));
+      this.banner('JACKPOT!', '#ffc53d', 1.4); unlockAch('lootgob');
+    }
     if (e.isBoss) {
       SAVE.stats.bossKills++;
       for (let i = 0; i < 12; i++) this.addPickup(new Pickup({ kind: 'coin', value: 2 + this.diff, x: e.x + R(-30, 30), z: e.z }));
@@ -713,6 +729,13 @@ function drawFighter(f, cam) {
     g.globalCompositeOperation = 'source-over';
   }
   if (f.isHero && f.overdrive > 0) { g.globalCompositeOperation = 'lighter'; drawGlow(x, y - 55 * sc, 90 * sc, '#ffc53d', 0.5); g.globalCompositeOperation = 'source-over'; }
+  if (f.look.sack && !f.dead) {
+    g.fillStyle = '#a0703a'; g.strokeStyle = OUTLINE; g.lineWidth = 3;
+    const bx = x - f.face * 18 * sc, by = y - 62 * sc + Math.sin(f.clock * 14) * 2;
+    g.beginPath(); g.ellipse(bx, by, 22 * sc, 26 * sc, 0, 0, TAU); g.fill(); g.stroke();
+    g.fillStyle = '#ffc53d'; g.font = `bold ${Math.round(16 * sc)}px ${FONT_DISPLAY}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('¢', bx, by + 2);
+    if (Math.random() < 0.15) Particles.add({ x: f.x - f.face * 18, y: by + 10, vx: R(-60, 60), vy: R(-160, -60), g: 600, life: 0.6, size: 4, color: '#ffc53d', type: 'star' });
+  }
   if (f.art === 'human') {
     const pose = computePose(f);
     drawHumanoid(g, x, y, sc, f.face, f.look, pose, fx);

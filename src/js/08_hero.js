@@ -33,7 +33,7 @@ const HeroMixin = {
     const d = this.hdef, c = this.cards;
     const lv = (k) => c[k] || 0;
     const oldMax = this.maxHp || 0;
-    this.maxHp = d.hp + skillRank('g1') * 10 + lv('heartUp') * 20;
+    this.maxHp = Math.round((d.hp + skillRank('g1') * 10 + lv('heartUp') * 20) * (SAVE.settings.assist ? 1.3 : 1));
     this.maxMp = d.mp + skillRank('a1') * 12 + lv('manaCrystal') * 15;
     if (oldMax && this.maxHp > oldMax) this.hp += this.maxHp - oldMax;
     const wd = lv('wpn_dmg'), ws = lv('wpn_speed'), wr = lv('wpn_reach');

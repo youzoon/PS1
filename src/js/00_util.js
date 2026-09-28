@@ -99,8 +99,9 @@ function defaultSave() {
     seenIntro: false,
     endlessBest: 0,
     gauntletBest: 0,
+    floppies: {},
     typing: { lessons: {}, keyMiss: {}, keyHit: {}, bestWpm: 0 },
-    settings: { sfx: 0.8, music: 0.5, shake: true, dmgNums: true, touch: 'auto', hints: true },
+    settings: { sfx: 0.8, music: 0.5, shake: true, dmgNums: true, touch: 'auto', hints: true, assist: false },
     mapPos: 'L1',
   };
 }

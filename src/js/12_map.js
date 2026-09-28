@@ -418,6 +418,8 @@ function drawMapNode(g, n, T, selected) {
     g.font = `17px ${FONT_DISPLAY}`; g.fillStyle = '#1b1030'; g.fillText(n.lvl.n, x, y + 1);
     if (!BOSSES[n.lvl.end].elite) { g.fillStyle = '#ffc53d'; g.strokeStyle = OUTLINE; g.lineWidth = 2; starPath(g, x + 17, y - 17, 8, 3.5, 5); g.fill(); g.stroke(); }
   }
+  // golden floppy found here
+  if (n.lvl && SAVE.floppies && SAVE.floppies[n.id]) { g.fillStyle = '#ffc53d'; g.strokeStyle = OUTLINE; g.lineWidth = 1.5; g.fillRect(x + 16, y + 6, 12, 12); g.strokeRect(x + 16, y + 6, 12, 12); g.fillStyle = '#fff'; g.fillRect(x + 18, y + 12, 8, 5); }
   // stars
   if (n.lvl && n.cleared) for (let i = 0; i < 3; i++) { g.fillStyle = i < n.stars ? '#ffc53d' : 'rgba(60,40,20,.5)'; starPath(g, x - 16 + i * 16, y + 32, 7, 3, 5); g.fill(); }
   // label

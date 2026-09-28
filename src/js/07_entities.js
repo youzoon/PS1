@@ -366,7 +366,7 @@ function dealDamage(att, tgt, info) {
 function applyElement(att, tgt, info, dmg) {
   const el = info.el;
   const hero = S.hero;
-  if (el === 'fire') { tgt.st.burn = Math.max(tgt.st.burn, 2.5); tgt.st.burnDps = Math.max(tgt.st.burnDps, Math.max(3, dmg * 0.3)); tgt.st.burnSrc = att; }
+  if (el === 'fire') { const dur = tgt.isHero ? 1.4 : 2.5; tgt.st.burn = Math.max(tgt.st.burn, dur); tgt.st.burnDps = Math.max(tgt.isHero ? 0 : tgt.st.burnDps, Math.max(tgt.isHero ? 2 : 3, dmg * (tgt.isHero ? 0.2 : 0.3))); tgt.st.burnSrc = att; }
   else if (el === 'ice') {
     tgt.st.chill += info.chill || 1; tgt.st.chillT = 3;
     const need = tgt.isBoss ? 6 : 3;
@@ -807,6 +807,18 @@ class Pickup {
         break;
       }
       case 'chest': S.openChest(this); break;
+      case 'floppy': {
+        const id = S.level.id;
+        if (S.mode !== 'demo' && LEVEL_BY_ID[id]) {
+          SAVE.floppies[id] = true; persist();
+          const n = Object.keys(SAVE.floppies).length;
+          toast('Golden floppy found!', `${n}/12 · saved to disk`, '💾');
+          unlockAch('floppy1'); if (n >= 12) unlockAch('floppies');
+        }
+        Sfx.play('dialup'); S.flashWhite = 0.2;
+        Floaters.add(this.x, scrY(this.z, 90), 'GOLDEN FLOPPY!', { color: '#ffc53d', size: 24, life: 1.6 });
+        break;
+      }
       case 'mana': h.mp = Math.min(h.maxMp, h.mp + 40); Sfx.play('gem'); Floaters.add(this.x, scrY(this.z, 70), '+MP', { color: '#55c8ff', size: 16 }); break;
     }
   }
@@ -844,6 +856,16 @@ class Pickup {
         g.fillStyle = '#f2ecdc'; g.fillRect(6, -2, 10, 4); g.beginPath(); g.arc(16, -3, 3, 0, TAU); g.arc(16, 3, 3, 0, TAU); g.fill();
         g.fillStyle = '#c9702a'; g.strokeStyle = OUTLINE; g.lineWidth = 2; g.beginPath(); g.ellipse(-2, 0, 12, 9, 0, 0, TAU); g.fill(); g.stroke();
         g.fillStyle = 'rgba(255,255,255,.4)'; g.beginPath(); g.ellipse(-5, -4, 4, 2, -0.3, 0, TAU); g.fill();
+        g.restore();
+        break;
+      }
+      case 'floppy': {
+        const yy = y - 18 + bob;
+        g.globalCompositeOperation = 'lighter'; drawGlow(x, yy, 30 + Math.sin(this.t * 5) * 5, '#ffc53d', 0.8); g.globalCompositeOperation = 'source-over';
+        g.save(); g.translate(x, yy); g.rotate(Math.sin(this.t * 3) * 0.2);
+        g.fillStyle = '#ffc53d'; g.strokeStyle = OUTLINE; g.lineWidth = 2; g.fillRect(-12, -12, 24, 24); g.strokeRect(-12, -12, 24, 24);
+        g.fillStyle = '#fff4c2'; g.fillRect(-6, -12, 12, 7); g.fillStyle = OUTLINE; g.fillRect(2, -11, 3, 5);
+        g.fillStyle = '#fff'; g.fillRect(-8, 2, 16, 9);
         g.restore();
         break;
       }
@@ -886,12 +908,16 @@ class Prop {
     const sy = scrY(this.z, 20);
     Particles.burst(this.x, sy, 14, { speed: 300, life: 0.7, size: 6, colors: ['#a0703a', '#6b4424', '#c98b3a'], type: 'sq', g: 800, drag: 0.95 });
     dust(this.x, this.z, 8);
+    if (this.floppy) { S.addPickup(new Pickup({ kind: 'floppy', x: this.x, z: this.z, vy: 360, vx: 0 })); return; }
     const r = Math.random();
     const drop = this.kind === 'barrel' ? (r < 0.45 ? 'food' : r < 0.75 ? 'milk' : 'coin') : this.kind === 'crate' ? (r < 0.3 ? 'milk' : r < 0.55 ? 'mana' : 'coin') : null;
     if (drop === 'coin') for (let i = 0; i < 4; i++) S.addPickup(new Pickup({ kind: 'coin', value: 2, x: this.x, z: this.z }));
     else if (drop) S.addPickup(new Pickup({ kind: drop, value: 1, x: this.x, z: this.z }));
   }
-  update(dt) { this.t += dt; if (this.shakeT > 0) this.shakeT -= dt; }
+  update(dt) {
+    this.t += dt; if (this.shakeT > 0) this.shakeT -= dt;
+    if (this.floppy && Math.random() < dt * 1.5) Particles.add({ x: this.x + R(-18, 18), y: scrY(this.z, R(10, 40)), vy: -30, life: 0.7, size: 3, color: '#ffc53d', type: 'star' });
+  }
   draw(camX) {
     if (this.held) return;
     const x = this.x - camX + (this.shakeT > 0 ? R(-3, 3) : 0), y = scrY(this.z, this.y);

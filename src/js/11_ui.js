@@ -294,7 +294,7 @@ const UI = {
     }
     body.append(grid);
     const st = SAVE.stats;
-    const rows = [['Enemies defeated', fmt(st.kills)], ['Bosses defeated', fmt(st.bossKills)], ['Levels cleared', fmt(st.wins)], ['Runs started', fmt(st.runs)], ['Knock-outs', fmt(st.deaths)], ['Best combo', fmt(st.maxCombo)], ['Critical hits', fmt(st.crits)], ['Spells cast', fmt(st.spells)], ['Frozen foes shattered', fmt(st.shatters)], ['Milk consumed', fmt(st.milk)], ['XP gems collected', fmt(st.gems)], ['Lifetime quarters', fmt(SAVE.lifetimeQuarters)], ['Endless best wave', fmt(SAVE.endlessBest)], ['Best typing speed', (SAVE.typing.bestWpm || 0) + ' WPM'], ['Time played', Math.floor(st.playTime / 60) + ' min']];
+    const rows = [['Enemies defeated', fmt(st.kills)], ['Bosses defeated', fmt(st.bossKills)], ['Levels cleared', fmt(st.wins)], ['Runs started', fmt(st.runs)], ['Knock-outs', fmt(st.deaths)], ['Best combo', fmt(st.maxCombo)], ['Critical hits', fmt(st.crits)], ['Spells cast', fmt(st.spells)], ['Frozen foes shattered', fmt(st.shatters)], ['Milk consumed', fmt(st.milk)], ['XP gems collected', fmt(st.gems)], ['Lifetime quarters', fmt(SAVE.lifetimeQuarters)], ['Endless best wave', fmt(SAVE.endlessBest)], ['Gauntlet best', (SAVE.gauntletBest || 0) + '/5'], ['Golden floppies', Object.keys(SAVE.floppies || {}).length + '/12'], ['Best typing speed', (SAVE.typing.bestWpm || 0) + ' WPM'], ['Time played', Math.floor(st.playTime / 60) + ' min']];
     const tbl = h('div', { class: 'stat-table', style: 'width:min(100%,520px)' });
     for (const [k, v] of rows) tbl.append(h('span', null, k), h('span', null, v));
     body.append(h('div', { class: 'panel', style: 'display:flex;justify-content:center' }, tbl));
@@ -311,6 +311,7 @@ const UI = {
     list.append(range('Music volume', 'setMusic', 'music'), range('Sound volume', 'setSfx', 'sfx'));
     const tog = (label, id, key) => h('div', { class: 'set-row' }, h('label', { for: id }, label), h('input', { type: 'checkbox', class: 'toggle', id, checked: SAVE.settings[key], onchange: (e) => { SAVE.settings[key] = e.target.checked; persist(); } }));
     list.append(tog('Screen shake', 'setShake', 'shake'), tog('Damage numbers', 'setDmg', 'dmgNums'), tog('Tutorial hints', 'setHints', 'hints'));
+    list.append(h('div', { class: 'set-row' }, h('label', { for: 'setAssist' }, 'Assist mode', h('div', { class: 'small muted' }, 'More HP, softer enemies. Great for younger players.')), h('input', { type: 'checkbox', class: 'toggle', id: 'setAssist', checked: SAVE.settings.assist, onchange: (e) => { SAVE.settings.assist = e.target.checked; persist(); } })));
     const sel = h('select', { id: 'setTouch', style: 'font:inherit;padding:6px 10px;border-radius:8px;background:#120d26;color:var(--text);border:2px solid var(--line)', onchange: (e) => { SAVE.settings.touch = e.target.value; persist(); } },
       ...['auto', 'on', 'off'].map((v) => h('option', { value: v, selected: SAVE.settings.touch === v }, v === 'auto' ? 'Automatic' : v === 'on' ? 'Always on' : 'Off')));
     list.append(h('div', { class: 'set-row' }, h('label', { for: 'setTouch' }, 'Touch controls'), sel));

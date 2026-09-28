@@ -65,6 +65,21 @@ function enemyThink(e, dt) {
     e.setState('block'); e.vx = 0; e.vz = 0; e.blockT = R(0.5, 0.9);
     return;
   }
+  if (e.ai === 'flee') {
+    // run for the far edge, zig-zagging; escape after a while
+    e.fleeT = (e.fleeT || 0) + dt;
+    const away = sign(e.x - h.x) || 1;
+    const tz = DEPTH / 2 + Math.sin(e.fleeT * 2.4) * DEPTH * 0.45;
+    moveToward(e, e.x + away * 200, tz, Math.abs(h.x - e.x) < 260 ? 1.4 : 0.9, dt);
+    e.face = away;
+    if (e.fleeT > 13) {
+      e.dead = true; e.remove = true;
+      Particles.burst(e.x, scrY(e.z, 40), 20, { speed: 240, life: 0.6, size: 6, colors: ['#ffc53d', '#fff4c2'], type: 'star' });
+      Floaters.add(e.x, scrY(e.z, 110), 'IT GOT AWAY!', { color: '#ffc53d', size: 18 });
+      Sfx.play('blink');
+    }
+    return;
+  }
   switch (e.ai) {
     case 'brawler': case 'tank': case 'hopper': case 'flyer': case 'charger': {
       if (!engaged) {
@@ -118,7 +133,7 @@ function enemyThink(e, dt) {
         S.lastShot = S.time;
         e.setState('cast'); e.castDur = 0.45; e.castColor = EL[{ iceball: 'ice', fireball: 'fire', spore: 'poison', glitchball: 'glitch' }[def.shot]]?.c || '#fff';
         e.pendingShot = { kind: def.shot, t: 0.3 };
-        e.atkCd = R(2.6, 4) / aggr;
+        e.atkCd = R(2.6, 4) / aggr * (def.rate || 1);
         return;
       }
       if (Math.abs(e.x - tx) > 30 || !aligned) moveToward(e, tx, tz, 0.9, dt);
